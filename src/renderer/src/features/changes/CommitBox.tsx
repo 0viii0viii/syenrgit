@@ -28,9 +28,12 @@ export function CommitBox(): React.JSX.Element | null {
   const stash = useActions((s) => s.stash)
 
   const [message, setMessage] = useState('')
+  const [amend, setAmend] = useState(false)
   // A ref, not state: this only guards the fetch, and writing it during the
   // effect would cost a render pass for something nothing displays.
   const prefilledFor = useRef<string | null>(null)
+  /** The message we prefilled for an amend, so unticking can withdraw it. */
+  const amendPrefill = useRef<string | null>(null)
 
   const merging = status?.operation === 'merge'
   const stagedCount = status?.files.filter(isStaged).length ?? 0
@@ -56,20 +59,44 @@ export function CommitBox(): React.JSX.Element | null {
     }
   }, [root, merging])
 
+  // Ticking amend pulls in HEAD's message; unticking withdraws it again, but
+  // only if the user has not edited it in between.
+  const toggleAmend = (next: boolean): void => {
+    setAmend(next)
+    if (!root) return
+    if (next) {
+      void window.api.headMessage(root).then((previous) => {
+        if (!previous) return
+        setMessage((current) => {
+          if (current.trim() !== '') return current
+          amendPrefill.current = previous
+          return previous
+        })
+      })
+    } else if (amendPrefill.current !== null) {
+      setMessage((current) => (current === amendPrefill.current ? '' : current))
+      amendPrefill.current = null
+    }
+  }
+
   if (!root) return null
 
   const blocked = conflicts > 0
-  const nothingStaged = stagedCount === 0 && !merging
+  // Amending replaces the previous commit, so an empty index is fine — it is
+  // how you fix only the message.
+  const nothingStaged = stagedCount === 0 && !merging && !amend
   const disabled = busy !== null || blocked || nothingStaged || message.trim() === ''
 
-  const label = merging ? 'Commit merge' : 'Commit'
+  const label = amend ? 'Amend' : merging ? 'Commit merge' : 'Commit'
   const hint = blocked
     ? `${conflicts} conflict${conflicts === 1 ? '' : 's'} left to resolve`
-    : nothingStaged
-      ? 'Nothing staged'
-      : merging
-        ? 'Merge in progress'
-        : `${stagedCount} staged`
+    : amend
+      ? 'Replaces the previous commit'
+      : nothingStaged
+        ? 'Nothing staged'
+        : merging
+          ? 'Merge in progress'
+          : `${stagedCount} staged`
 
   return (
     <div className="shrink-0 space-y-1.5 border-t border-border-subtle bg-surface-app p-2">
@@ -83,7 +110,12 @@ export function CommitBox(): React.JSX.Element | null {
           // Cmd/Ctrl+Enter commits, the convention every git GUI shares.
           if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !disabled) {
             e.preventDefault()
-            void commit(root, message).then((done) => done && setMessage(''))
+            void commit(root, message, amend).then((done) => {
+              if (done) {
+                setMessage('')
+                setAmend(false)
+              }
+            })
           }
         }}
       />
@@ -96,6 +128,29 @@ export function CommitBox(): React.JSX.Element | null {
         >
           {hint}
         </span>
+
+        {/* Amending a pushed commit rewrites history, so it is off by default
+            and never sticky across commits. */}
+        <label
+          className={cn(
+            'flex shrink-0 cursor-default items-center gap-1 text-2xs',
+            merging ? 'opacity-40' : 'text-content-secondary'
+          )}
+          title={
+            merging
+              ? 'Finish the merge first'
+              : 'Replace the previous commit instead of adding one'
+          }
+        >
+          <input
+            type="checkbox"
+            checked={amend}
+            disabled={merging || busy !== null}
+            onChange={(e) => toggleAmend(e.target.checked)}
+            className="size-3 accent-accent-bg"
+          />
+          Amend
+        </label>
 
         {/* Stashing mid-merge would shelve a half-finished merge; git allows
             it but restoring it later is a trap, so it is offered only on a
@@ -125,9 +180,16 @@ export function CommitBox(): React.JSX.Element | null {
           size="sm"
           className="h-6 px-2 text-2xs"
           disabled={disabled}
-          onClick={() => void commit(root, message).then((done) => done && setMessage(''))}
+          onClick={() =>
+            void commit(root, message, amend).then((done) => {
+              if (done) {
+                setMessage('')
+                setAmend(false)
+              }
+            })
+          }
         >
-          {busy === 'commit' ? 'Committing…' : label}
+          {busy === 'commit' ? (amend ? 'Amending…' : 'Committing…') : label}
         </Button>
       </div>
     </div>

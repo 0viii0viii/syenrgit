@@ -10,6 +10,8 @@ import type {
   PushRequest,
   PushTagsRequest,
   CreateTagRequest,
+  PatchRequest,
+  PatchSelection,
   DeleteBranchRequest,
   RebaseRequest,
   RebaseStep,
@@ -51,6 +53,7 @@ import {
   createCommit,
   createTag,
   deleteBranch,
+  headCommitMessage,
   deleteTag,
   isBranchMerged,
   isValidBranchName,
@@ -66,6 +69,14 @@ import {
 } from '../git/conflict.js'
 import { startWatching, stopWatching } from '../watcher.js'
 import { checkForUpdatesNow, currentUpdateState, installUpdate } from '../updater.js'
+import {
+  discardFile,
+  discardPartial,
+  readPatch,
+  stagePartial,
+  unstagePartial,
+  type Selection
+} from '../git/patch.js'
 
 /**
  * Wrap a handler so GitError surfaces to the renderer as a clean message.
@@ -103,6 +114,40 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
     if (result.canceled || result.filePaths.length === 0) return null
     return discoverRepo(result.filePaths[0]!)
   })
+
+  /** The renderer sends a plain object; the git layer wants a Map of Sets. */
+  const toSelection = (selection: PatchSelection): Selection => ({
+    hunks: new Map(
+      Object.entries(selection).map(([index, picked]) => [
+        Number(index),
+        picked === 'all' ? ('all' as const) : new Set(picked)
+      ])
+    )
+  })
+
+  handle(IPC.patchRead, async (cwd: string, path: string, stagedSide: boolean) => {
+    const patch = await readPatch(cwd, path, stagedSide ? 'index' : 'worktree')
+    if (!patch) return null
+    return {
+      path,
+      hunks: patch.hunks.map((h) => ({
+        header: h.header,
+        oldStart: h.oldStart,
+        newStart: h.newStart,
+        lines: h.lines
+      }))
+    }
+  })
+  handle(IPC.patchStage, (req: PatchRequest) =>
+    stagePartial({ cwd: req.cwd, path: req.path, selection: toSelection(req.selection) })
+  )
+  handle(IPC.patchUnstage, (req: PatchRequest) =>
+    unstagePartial({ cwd: req.cwd, path: req.path, selection: toSelection(req.selection) })
+  )
+  handle(IPC.patchDiscard, (req: PatchRequest) =>
+    discardPartial({ cwd: req.cwd, path: req.path, selection: toSelection(req.selection) })
+  )
+  handle(IPC.discardFile, (cwd: string, path: string) => discardFile(cwd, path))
 
   handle(IPC.updateState, async () => currentUpdateState())
   handle(IPC.updateCheck, async () => {
@@ -207,6 +252,7 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
     await abortOperation(cwd, operation)
   })
   handle(IPC.mergeMessage, (cwd: string) => mergeMessage(cwd))
+  handle(IPC.headMessage, (cwd: string) => headCommitMessage(cwd))
 
   handle(IPC.stashPush, (req: StashPushRequest) =>
     stashPush({

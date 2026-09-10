@@ -292,3 +292,13 @@ export async function isBranchMerged(cwd: string, name: string): Promise<boolean
     .filter(Boolean)
     .some((ref) => ref !== `refs/heads/${name}`)
 }
+
+/** The message of the commit at HEAD, for prefilling an amend. */
+export async function headCommitMessage(cwd: string): Promise<string | null> {
+  try {
+    return (await git(['log', '-1', '--format=%B'], { cwd })).trim()
+  } catch {
+    // An unborn branch has no HEAD to amend.
+    return null
+  }
+}

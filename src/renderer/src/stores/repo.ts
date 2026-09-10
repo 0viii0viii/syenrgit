@@ -23,6 +23,8 @@ interface RepoState {
   select: (selection: PaneSelection) => Promise<void>
   stage: (paths: string[]) => Promise<void>
   unstage: (paths: string[]) => Promise<void>
+  /** Throw away every uncommitted change to a file. Not recoverable. */
+  discard: (path: string) => Promise<void>
 }
 
 export const useRepo = create<RepoState>((set, get) => ({
@@ -109,6 +111,18 @@ export const useRepo = create<RepoState>((set, get) => ({
     const { root } = get()
     if (!root) return
     await window.api.unstage({ cwd: root, paths })
+    await get().refresh()
+  },
+
+  discard: async (path) => {
+    const { root } = get()
+    if (!root) return
+    try {
+      await window.api.discardFile(root, path)
+      set({ error: null })
+    } catch (err) {
+      set({ error: describeError(err) })
+    }
     await get().refresh()
   }
 }))

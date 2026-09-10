@@ -27,7 +27,7 @@ interface ActionState {
   clear: () => void
   checkout: (root: string, branch: string) => Promise<boolean>
   merge: (root: string, ref: string, noFastForward: boolean) => Promise<MergeOutcome | null>
-  commit: (root: string, message: string) => Promise<boolean>
+  commit: (root: string, message: string, amend?: boolean) => Promise<boolean>
   abort: (root: string, operation: string) => Promise<boolean>
   fetch: (root: string, prune: boolean) => Promise<boolean>
   pull: (root: string, rebase: boolean) => Promise<PullOutcome | null>
@@ -136,12 +136,12 @@ export const useActions = create<ActionState>((set) => ({
     }
   },
 
-  commit: async (root, message) => {
+  commit: async (root, message, amend) => {
     set({ busy: 'commit', error: null, notice: null })
     try {
-      const created = await window.api.commit({ cwd: root, message })
+      const created = await window.api.commit({ cwd: root, message, ...(amend ? { amend } : {}) })
       await reload(root)
-      set({ notice: `Committed ${created.shortHash}` })
+      set({ notice: amend ? `Amended ${created.shortHash}` : `Committed ${created.shortHash}` })
       return true
     } catch (err) {
       set({ error: describeError(err) })

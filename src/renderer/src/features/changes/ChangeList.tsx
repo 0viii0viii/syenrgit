@@ -1,10 +1,18 @@
 import { useCallback, useMemo, useRef } from 'react'
 import { defaultRangeExtractor, useVirtualizer, type Range } from '@tanstack/react-virtual'
 import { Minus, Plus } from 'lucide-react'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger
+} from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
 import { useListMetrics } from '@/lib/list-metrics'
 import { isStaged, isUnstaged, primaryState, splitPath, stateMeta } from '@/lib/git-status'
 import { useRepo } from '@/stores/repo'
+import { useActions } from '@/stores/actions'
 import type { FileEntry } from '@shared/git'
 
 type Row =
@@ -52,8 +60,13 @@ function FileRow({
 }): React.JSX.Element {
   const meta = stateMeta(primaryState(entry))
   const { dir, name } = splitPath(entry.path)
+  const root = useRepo((s) => s.root)
+  const stage = useRepo((s) => s.stage)
+  const unstage = useRepo((s) => s.unstage)
+  const discard = useRepo((s) => s.discard)
+  const busy = useActions((s) => s.busy)
 
-  return (
+  const row = (
     <div
       role="option"
       aria-selected={selected}
@@ -99,6 +112,40 @@ function FileRow({
         {staged ? <Minus className="size-3" /> : <Plus className="size-3" />}
       </button>
     </div>
+  )
+
+  if (!root) return row
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
+      <ContextMenuContent className="w-56">
+        <ContextMenuItem
+          disabled={busy !== null}
+          onSelect={() => void (staged ? unstage([entry.path]) : stage([entry.path]))}
+        >
+          {staged ? 'Unstage this file' : 'Stage this file'}
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          variant="destructive"
+          disabled={busy !== null || staged}
+          onSelect={() => {
+            // The only action in the app that destroys uncommitted work, so it
+            // asks even though nothing else does.
+            if (
+              window.confirm(
+                `Discard all changes to ${entry.path}? This cannot be undone.`
+              )
+            ) {
+              void discard(entry.path)
+            }
+          }}
+        >
+          {staged ? 'Unstage before discarding' : 'Discard changes'}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
 

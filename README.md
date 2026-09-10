@@ -201,6 +201,40 @@ progress even though there are unmerged paths.
 Stashing is not offered mid-merge: git allows it, but restoring a half-finished
 merge later is a trap.
 
+### Partial staging
+
+Selecting lines in the working-tree diff stages, unstages or discards just
+those lines. It works by handing `git apply` a patch containing only the
+selection, built by filtering the **raw** diff text rather than re-rendering it
+from the parsed structure — so the file header (modes, index line, rename
+markers) survives byte-for-byte and only the hunk bodies are rewritten.
+
+The filtering rule is asymmetric, and getting it backwards is how partial
+staging corrupts a file:
+
+| line | selected | unselected |
+|---|---|---|
+| `+` | kept | **dropped** — it is not in the target yet |
+| `-` | kept | **becomes context** — the line is still in the target |
+
+Diffs are read with `--unified=0`. With the default three lines of context,
+staging one hunk leaves the next one unable to match; zero context makes
+adjacent selections independent. Hunk headers are recounted, but `newStart` is
+left alone: `git apply` locates a hunk by its old-side position and the
+surrounding context, and treating the new-side start as advisory is what lets
+hunks be staged in any order.
+
+Unstaging reads the diff from the index side and applies it reversed; a partial
+discard reverses the selection out of the working tree.
+
+The suite checks two invariants across 59 randomised edits: staging a subset
+and then the remainder reproduces the working tree exactly, and unstaging
+everything returns the index to HEAD.
+
+Discarding is the one operation in the app that destroys work — the content was
+never committed and is not in the index — so it is the only one that asks
+first.
+
 ### Cherry-pick and revert
 
 Both are git's *sequencer* operations: they replay commits one at a time, stop

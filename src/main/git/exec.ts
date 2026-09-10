@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
@@ -25,6 +25,11 @@ export interface GitRunOptions {
   timeoutMs?: number
   /** Extra environment for this call, merged over the base environment. */
   env?: NodeJS.ProcessEnv
+  /**
+   * Text to write to the process's stdin. Used for `git apply -`, where the
+   * patch would otherwise have to be written to a temporary file.
+   */
+  stdin?: string
 }
 
 /**
@@ -62,10 +67,59 @@ function baseEnv(): NodeJS.ProcessEnv {
   }
 }
 
+/**
+ * Feed a patch to git over stdin.
+ *
+ * `execFile` cannot write to a child's stdin, so this path uses `spawn`. It is
+ * separate rather than replacing `run` because every other call is a plain
+ * request/response and gains nothing from the extra plumbing.
+ */
+async function runWithStdin(
+  args: string[],
+  opts: GitRunOptions & { stdin: string }
+): Promise<{ stdout: string; stderr: string }> {
+  const fullArgs = [...BASE_ARGS, ...args]
+
+  return new Promise((resolve, reject) => {
+    const child = spawn('git', fullArgs, {
+      cwd: opts.cwd,
+      env: { ...baseEnv(), ...opts.env },
+      windowsHide: true
+    })
+
+    let stdout = ''
+    let stderr = ''
+    child.stdout.setEncoding('utf8')
+    child.stderr.setEncoding('utf8')
+    child.stdout.on('data', (chunk: string) => {
+      stdout += chunk
+    })
+    child.stderr.on('data', (chunk: string) => {
+      stderr += chunk
+    })
+
+    child.on('error', reject)
+    child.on('close', (code) => {
+      if (code === 0 || opts.okExitCodes?.includes(code ?? -1)) {
+        resolve({ stdout, stderr })
+      } else {
+        reject(new GitError(stderr.trim() || `git ${args[0] ?? ''} failed`, fullArgs, code, stderr))
+      }
+    })
+
+    // A patch larger than the pipe buffer would deadlock if we waited for the
+    // process to exit before finishing the write, so end() is called at once.
+    child.stdin.end(opts.stdin, 'utf8')
+  })
+}
+
 async function run(
   args: string[],
   opts: GitRunOptions
 ): Promise<{ stdout: string | Buffer; stderr: string }> {
+  if (opts.stdin !== undefined) {
+    return runWithStdin(args, opts as GitRunOptions & { stdin: string })
+  }
   const fullArgs = [...BASE_ARGS, ...args]
   try {
     const { stdout, stderr } = await execFileAsync('git', fullArgs, {

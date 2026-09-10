@@ -40,6 +40,7 @@ export const IPC = {
   actionCommit: 'action:commit',
   actionAbort: 'action:abort',
   mergeMessage: 'action:mergeMessage',
+  headMessage: 'action:headMessage',
   remotesList: 'remote:list',
   remoteFetch: 'remote:fetch',
   remotePull: 'remote:pull',
@@ -63,7 +64,12 @@ export const IPC = {
   todoRun: 'rebase:todoRun',
   updateState: 'update:state',
   updateCheck: 'update:check',
-  updateInstall: 'update:install'
+  updateInstall: 'update:install',
+  patchRead: 'patch:read',
+  patchStage: 'patch:stage',
+  patchUnstage: 'patch:unstage',
+  patchDiscard: 'patch:discard',
+  discardFile: 'patch:discardFile'
 } as const
 
 /** Pushed from main to the renderer; not request/response. */
@@ -317,6 +323,32 @@ export interface RunTodoRequest {
   entries: TodoEntry[]
 }
 
+/**
+ * One hunk of a file, as the staging UI sees it. Line indices are positions in
+ * `lines`, which is what a selection refers to.
+ */
+export interface PatchHunk {
+  header: string
+  oldStart: number
+  newStart: number
+  /** Body lines, each still carrying its ' ', '+', '-' or '\' marker. */
+  lines: string[]
+}
+
+export interface FilePatch {
+  path: string
+  hunks: PatchHunk[]
+}
+
+/** Hunk index -> the picked line indices, or 'all' for the whole hunk. */
+export type PatchSelection = Record<number, number[] | 'all'>
+
+export interface PatchRequest {
+  cwd: string
+  path: string
+  selection: PatchSelection
+}
+
 export interface CommitDiffRequest {
   cwd: string
   hash: string
@@ -352,6 +384,8 @@ export interface RendererApi {
   abort(cwd: string, operation: string): Promise<void>
   /** Message git prepared for an in-progress merge, if any. */
   mergeMessage(cwd: string): Promise<string | null>
+  /** Message of the commit at HEAD, for prefilling an amend. */
+  headMessage(cwd: string): Promise<string | null>
   remotes(cwd: string): Promise<RemoteInfo[]>
   fetch(req: FetchRequest): Promise<string>
   pull(req: PullRequest): Promise<PullOutcome>
@@ -378,6 +412,12 @@ export interface RendererApi {
   updateState(): Promise<UpdateState>
   checkForUpdates(): Promise<void>
   installUpdate(): Promise<void>
+  /** The hunks of a file, for partial staging. `staged` reads the index side. */
+  readPatch(cwd: string, path: string, staged: boolean): Promise<FilePatch | null>
+  stagePartial(req: PatchRequest): Promise<void>
+  unstagePartial(req: PatchRequest): Promise<void>
+  discardPartial(req: PatchRequest): Promise<void>
+  discardFile(cwd: string, path: string): Promise<void>
   /** Subscribe to updater progress. Returns an unsubscribe function. */
   onUpdateChanged(listener: (state: UpdateState) => void): () => void
 }

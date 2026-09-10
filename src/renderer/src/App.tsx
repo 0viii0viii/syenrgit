@@ -8,7 +8,8 @@ import { RefTree } from '@/components/layout/RefTree'
 import { RepoTabs } from '@/components/layout/RepoTabs'
 import { ChangeList } from '@/features/changes/ChangeList'
 import { CommitBox } from '@/features/changes/CommitBox'
-import { DiffPanel, DiffView } from '@/features/diff/DiffView'
+import { DiffPanel } from '@/features/diff/DiffView'
+import { StagingDiff } from '@/features/diff/StagingDiff'
 import { CommitList } from '@/features/history/CommitList'
 import { HistoryFilter } from '@/features/history/HistoryFilter'
 import { CommitDetail } from '@/features/history/CommitDetail'
@@ -92,7 +93,7 @@ function Workspace(): React.JSX.Element {
           mergePath ? (
             <MergeEditor />
           ) : (
-            <DiffView />
+            <StagingDiff />
           )
         ) : (
           <HistoryPane />
