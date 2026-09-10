@@ -383,11 +383,25 @@ launch. On Windows, choose "More info" then "Run anyway"; on macOS,
 right-click the app and choose Open, or run
 `xattr -dr com.apple.quarantine /Applications/syenrgit.app`.
 
-The app checks GitHub for a new release shortly after launch and every six
-hours, downloads it in the background, and offers "Restart to update" in the
-status bar. On macOS this only works from `/Applications` — Squirrel refuses to
-swap a bundle running from elsewhere — and the app says so instead of
-downloading an update it cannot install.
+### Auto-update
+
+The app checks GitHub shortly after launch and every six hours, downloads a new
+release in the background, and offers "Restart to update" in the status bar.
+
+**This works on Windows and not on macOS**, and the difference is code signing:
+
+- Windows: `electron-updater` skips signature verification when
+  `app-update.yml` carries no `publisherName`, which is the case for these
+  builds, so the update installs.
+- macOS: Squirrel.Mac does its own verification and refuses to swap a bundle
+  it cannot verify. An unsigned build carries only an ad-hoc linker signature,
+  so the update downloads in full and then silently fails to install. The app
+  runs `codesign --verify` at startup and reports "Updates unavailable" rather
+  than spending 130 MB on something it can never apply.
+
+Fixing macOS needs an Apple Developer ID certificate ($99/year) added to the
+release workflow as `CSC_LINK` and `CSC_KEY_PASSWORD`, plus notarization
+credentials. Until then, Mac users update by downloading a new dmg.
 
 ## Test repositories
 
