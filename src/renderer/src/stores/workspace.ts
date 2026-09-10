@@ -33,6 +33,8 @@ interface Snapshot {
   exclusive: boolean
 }
 
+// Deliberately still 'forgit': renaming the key would silently drop the open
+// tabs of anyone who used an earlier build.
 const STORAGE_KEY = 'forgit.openRepos'
 
 function loadPersisted(): string[] {

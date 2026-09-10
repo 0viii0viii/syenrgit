@@ -85,7 +85,7 @@ export async function runInteractiveRebase(
   const problem = validateTodo(entries)
   if (problem) throw new Error(problem)
 
-  const dir = await mkdtemp(join(tmpdir(), 'forgit-todo-'))
+  const dir = await mkdtemp(join(tmpdir(), 'syenrgit-todo-'))
   const todoPath = join(dir, 'todo')
   await writeFile(todoPath, renderTodo(entries), 'utf8')
 

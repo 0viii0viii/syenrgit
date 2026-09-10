@@ -8,7 +8,7 @@ import { initUpdater, stopUpdater } from './updater.js'
 let mainWindow: BrowserWindow | null = null
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('dev.forgit.app')
+  electronApp.setAppUserModelId('dev.syenrgit.app')
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
