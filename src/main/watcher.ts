@@ -4,6 +4,7 @@ import type { BrowserWindow } from 'electron'
 import { IPC_EVENT } from '@shared/ipc.js'
 import type { ChangeScope } from '@shared/ipc.js'
 import { gitCommonDir, gitDir } from './git/repo.js'
+import { samePath } from '@shared/paths.js'
 
 /**
  * Paths whose churn must never trigger a status refresh. `.git/index.lock` in
@@ -98,7 +99,10 @@ export async function startWatching(
     // watching only `dir` would miss every commit made from a sibling.
     const common = await gitCommonDir(root)
     attach(join(common, 'refs'), true)
-    if (common !== dir) attach(common, true)
+    // Compared as paths, not strings: gitDir comes from git with forward
+    // slashes while gitCommonDir is resolved through realpath, so on Windows
+    // an ordinary repository would otherwise be watched twice.
+    if (!samePath(common, dir)) attach(common, true)
   } catch {
     /* not a repo */
   }

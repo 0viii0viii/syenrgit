@@ -2,7 +2,6 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { realpathSync } from 'node:fs'
 import { samePath } from '@shared/paths'
 import { getStatus } from '@main/git/status.js'
 import { listRefs } from '@main/git/refs.js'
@@ -37,11 +36,14 @@ const { main, linked } = setup()
 const g = (cwd: string, ...a: string[]) =>
   execFileSync('git', a, { cwd, encoding: 'utf8' }).trim()
 
-// Paths from git and from Node never match as strings: macOS puts the temp
-// dir behind a symlink, and Windows reports forward slashes against Node's
-// backslashes and 8.3 short names.
-ok('discoverRepo resolves the linked worktree itself',
-  samePath((await discoverRepo(linked)) ?? '', realpathSync(linked)))
+// Asserted by shape rather than by an exact path: macOS puts the temp
+// directory behind a symlink and Windows may report an 8.3 short name, so no
+// amount of text normalisation makes git's answer equal Node's.
+const discovered = (await discoverRepo(linked)) ?? ''
+ok('discoverRepo resolves the linked worktree, not the main one',
+  discovered.replace(/\\/g, '/').endsWith('/linked') &&
+    !samePath(discovered, await discoverRepo(main) ?? ''),
+  discovered)
 
 const dir = await gitDir(linked)
 const common = await gitCommonDir(linked)
@@ -70,7 +72,7 @@ ok('  while HEAD resolves into the per-worktree one', under(headPath, dir),
 // In an ordinary repository the two must coincide, or the watcher would
 // attach the same directory twice.
 ok('in a normal repo the two are the same path',
-  (await gitDir(main)) === (await gitCommonDir(main)),
+  samePath(await gitDir(main), await gitCommonDir(main)),
   `${await gitDir(main)} vs ${await gitCommonDir(main)}`)
 
 const st = await getStatus(linked)
