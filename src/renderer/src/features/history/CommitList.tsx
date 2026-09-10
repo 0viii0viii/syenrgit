@@ -8,7 +8,7 @@ import {
   ContextMenuTrigger
 } from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
-import { initials, relativeTime } from '@/lib/format'
+import { relativeTime } from '@/lib/format'
 import { useHistory } from '@/stores/history'
 import { useActions } from '@/stores/actions'
 import { useRepo } from '@/stores/repo'
@@ -161,11 +161,13 @@ export function CommitList(): React.JSX.Element {
             >
               <RefBadges refs={commit.refs} />
               <span className="min-w-0 flex-1 truncate">{commit.subject}</span>
+              {/* The name itself, not initials: "AL" and "AT" tell you
+                  nothing about who wrote a commit. */}
               <span
-                className="shrink-0 text-2xs text-content-tertiary"
+                className="w-author shrink-0 truncate text-2xs text-content-tertiary"
                 title={`${commit.authorName} <${commit.authorEmail}>`}
               >
-                {initials(commit.authorName)}
+                {commit.authorName}
               </span>
               <span className="w-14 shrink-0 text-right font-mono text-2xs text-content-tertiary">
                 {commit.shortHash}

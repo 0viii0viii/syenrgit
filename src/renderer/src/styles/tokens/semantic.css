@@ -57,6 +57,7 @@
   --layout-row-height:      1.75rem;  /* file/commit list row */
   --layout-row-height-lg:   2.25rem;
   --layout-section-header:  1.5rem;   /* sticky group header in a list */
+  --layout-author-width:    9rem;     /* author column in the commit list */
 
   /* -- shadcn/ui contract -------------------------------------------------- */
   --radius: var(--p-radius-md);
