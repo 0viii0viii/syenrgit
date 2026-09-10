@@ -573,16 +573,6 @@ export function RefTree(): React.JSX.Element {
     })
   }
 
-  if (!refs) return <div className="h-full bg-surface-app" />
-
-  if (rows.length === 0) {
-    return (
-      <div className="h-full bg-surface-app">
-        <p className="p-3 text-center text-2xs text-content-tertiary">No refs</p>
-      </div>
-    )
-  }
-
   const filterBox = (
     <div className="flex h-6 shrink-0 items-center gap-1.5 border-b border-border-subtle px-2">
       <Search className="size-3 shrink-0 text-content-tertiary" />
@@ -613,9 +603,33 @@ export function RefTree(): React.JSX.Element {
     </div>
   )
 
+  const filtering = query.trim() !== ''
+
   return (
     <div className="flex h-full flex-col bg-surface-app">
-      {filterBox}
+      {/* Always rendered, including in every empty state below: it is the only
+          control that can undo a filter, and hiding it strands the user with
+          a sidebar that says "No refs" and no way back. */}
+      {refs !== null && filterBox}
+
+      {refs === null ? (
+        <div className="min-h-0 flex-1" />
+      ) : rows.length === 0 ? (
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-3 text-center">
+          <p className="text-2xs text-content-tertiary">
+            {filtering ? `Nothing matches "${query.trim()}"` : 'No refs'}
+          </p>
+          {filtering && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              className="rounded-xs px-1.5 py-0.5 text-2xs text-content-link hover:bg-surface-active"
+            >
+              Clear filter
+            </button>
+          )}
+        </div>
+      ) : (
       <div
         ref={scrollRef}
         className="scroll-thin min-h-0 flex-1 overflow-auto"
@@ -691,6 +705,7 @@ export function RefTree(): React.JSX.Element {
           })}
         </div>
       </div>
+      )}
 
       <NewBranchDialog open={newBranchOpen} onOpenChange={setNewBranchOpen} />
       <NewWorktreeDialog open={newWorktreeOpen} onOpenChange={setNewWorktreeOpen} />

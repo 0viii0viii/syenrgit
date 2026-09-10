@@ -381,6 +381,11 @@ The graph is not even built when it would be fiction, which also keeps a
 2 MB page of edge objects off the IPC boundary. Scoping to a ref stays
 contiguous and keeps its graph.
 
+The filter box renders in every state, including when nothing matches. That is
+not a detail: it is the only control that can undo a filter, and an earlier
+version hid it in the empty state — leaving a sidebar that said "No refs" with
+no way back to the refs.
+
 The ref filter is client-side, because the whole list is already loaded. It
 matches subsequences — "fa" reaches "feature/auth" — but requires the
 characters in order, or the filter stops being predictable. Matches are ranked
