@@ -14,7 +14,12 @@ export function UpdateBadge(): React.JSX.Element | null {
   const [state, setState] = useState<UpdateState>({ status: 'idle' })
 
   useEffect(() => {
-    void window.api.updateState().then(setState)
+    // The badge is decoration; a failed read must not become an unhandled
+    // rejection in the renderer.
+    void window.api
+      .updateState()
+      .then(setState)
+      .catch(() => setState({ status: 'idle' }))
     return window.api.onUpdateChanged(setState)
   }, [])
 
