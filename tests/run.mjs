@@ -45,7 +45,20 @@ for (const suite of suites) {
     failed++
     console.log('FAILED')
     const detail = `${err.stdout ?? ''}${err.stderr ?? ''}`.trim()
-    for (const line of detail.split('\n').slice(-25)) console.log(`      ${line}`)
+    const lines = detail.split('\n')
+
+    // Show the failures themselves, wherever they are. A tail window hides
+    // them whenever a suite fails early and keeps going — which is exactly
+    // when the output is long enough to need trimming.
+    const failures = lines.filter((line) => /^\s*FAIL\b/.test(line))
+    if (failures.length > 0) {
+      for (const line of failures) console.log(`      ${line.trim()}`)
+      const tally = lines.find((line) => /\d+ passed, \d+ failed/.test(line))
+      if (tally) console.log(`      ${tally.trim()}`)
+    } else {
+      // A crash rather than an assertion; the tail is the stack.
+      for (const line of lines.slice(-20)) console.log(`      ${line}`)
+    }
   }
 }
 

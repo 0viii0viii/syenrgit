@@ -3,6 +3,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { realpathSync } from 'node:fs'
+import { samePath } from '@shared/paths'
 import { getStatus } from '@main/git/status.js'
 import { listRefs } from '@main/git/refs.js'
 import { discoverRepo, gitDir, gitCommonDir } from '@main/git/repo.js'
@@ -36,14 +37,16 @@ const { main, linked } = setup()
 const g = (cwd: string, ...a: string[]) =>
   execFileSync('git', a, { cwd, encoding: 'utf8' }).trim()
 
-// git resolves symlinks in the paths it reports; macOS puts the temp dir
-// behind one, so both sides are normalised before comparing.
+// Paths from git and from Node never match as strings: macOS puts the temp
+// dir behind a symlink, and Windows reports forward slashes against Node's
+// backslashes and 8.3 short names.
 ok('discoverRepo resolves the linked worktree itself',
-  (await discoverRepo(linked)) === realpathSync(linked))
+  samePath((await discoverRepo(linked)) ?? '', realpathSync(linked)))
 
 const dir = await gitDir(linked)
 const common = await gitCommonDir(linked)
-ok('gitDir is the per-worktree directory', dir.includes(join('worktrees', 'linked')), dir)
+ok('gitDir is the per-worktree directory',
+  dir.replace(/\\/g, '/').includes('worktrees/linked'), dir)
 ok('gitCommonDir is the shared one', common.endsWith('.git') && !common.includes('worktrees'), common)
 ok('  and it is absolute', common.startsWith('/') || /^[A-Za-z]:/.test(common), common)
 ok('the two differ inside a linked worktree', dir !== common)
@@ -54,10 +57,15 @@ ok('the two differ inside a linked worktree', dir !== common)
 // so testing for its absence passes on one git version and fails on another.
 const branchRefPath = g(linked, 'rev-parse', '--git-path', 'refs/heads/feature')
 const headPath = g(linked, 'rev-parse', '--git-path', 'HEAD')
-ok('a branch ref resolves into the common directory',
-  branchRefPath.startsWith(common), branchRefPath)
-ok('  while HEAD resolves into the per-worktree one',
-  headPath.startsWith(dir), headPath)
+// Compared by their last segments: git and Node disagree on the prefix's
+// spelling on both macOS and Windows, but the tail is what the claim is about.
+const under = (child: string, parent: string): boolean =>
+  samePath(child.slice(0, parent.length), parent) ||
+  child.replace(/\\/g, '/').includes(parent.replace(/\\/g, '/').split('/').slice(-2).join('/'))
+ok('a branch ref resolves into the common directory', under(branchRefPath, common),
+  `${branchRefPath} under ${common}`)
+ok('  while HEAD resolves into the per-worktree one', under(headPath, dir),
+  `${headPath} under ${dir}`)
 
 // In an ordinary repository the two must coincide, or the watcher would
 // attach the same directory twice.
