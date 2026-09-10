@@ -21,7 +21,7 @@ app.whenReady().then(() => {
     mainWindow = null
   })
 
-  initUpdater(() => mainWindow)
+  void initUpdater(() => mainWindow)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

@@ -23,8 +23,18 @@ export function UpdateBadge(): React.JSX.Element | null {
     return window.api.onUpdateChanged(setState)
   }, [])
 
-  if (state.status === 'idle' || state.status === 'checking' || state.status === 'unsupported') {
-    return null
+  if (state.status === 'idle' || state.status === 'checking') return null
+
+  if (state.status === 'unsupported') {
+    // Worth one quiet line: the user would otherwise wait indefinitely for an
+    // update that is never going to arrive. Development is the exception —
+    // nobody running `pnpm dev` is waiting for one.
+    if (state.reason.includes('development')) return null
+    return (
+      <span className="shrink-0 truncate text-2xs text-content-tertiary" title={state.reason}>
+        Updates unavailable
+      </span>
+    )
   }
 
   if (state.status === 'error') {

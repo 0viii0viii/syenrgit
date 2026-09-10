@@ -1,3 +1,5 @@
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import { app, BrowserWindow } from 'electron'
 import electronUpdater from 'electron-updater'
 import { IPC_EVENT } from '@shared/ipc.js'
@@ -5,6 +7,8 @@ import type { UpdateState } from '@shared/ipc.js'
 
 // electron-updater ships CommonJS; the named export is not reachable from ESM.
 const { autoUpdater } = electronUpdater
+
+const execFileAsync = promisify(execFile)
 
 /** How often to look for a new release after the first check. */
 const POLL_INTERVAL_MS = 6 * 60 * 60 * 1000
@@ -27,24 +31,53 @@ export function currentUpdateState(): UpdateState {
 }
 
 /**
+ * Whether Squirrel.Mac would accept an update over this bundle.
+ *
+ * It refuses anything whose signature it cannot verify, and an unsigned build
+ * carries only an ad-hoc linker signature. The failure happens at install time,
+ * long after a 130 MB download has completed, and is invisible to the user —
+ * so it is detected up front instead.
+ *
+ * Windows has no equivalent problem: electron-updater skips signature
+ * verification when app-update.yml carries no publisherName.
+ */
+async function macSignatureUsable(): Promise<boolean> {
+  try {
+    await execFileAsync('codesign', ['--verify', '--deep', '--strict', app.getAppPath()])
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
  * Whether this build can update itself.
  *
- * A dev run has no `app-update.yml`, and on macOS Squirrel refuses to swap an
- * app bundle running from outside /Applications — an update would download and
- * then fail at install. Saying so up front beats a download that goes nowhere.
+ * A dev run has no `app-update.yml`, and macOS additionally refuses to swap a
+ * bundle running outside /Applications. Saying so up front beats a download
+ * that goes nowhere.
  */
-function updatability(): { ok: true } | { ok: false; reason: string } {
+async function updatability(): Promise<{ ok: true } | { ok: false; reason: string }> {
   if (!app.isPackaged) return { ok: false, reason: 'Updates are disabled in development' }
-  if (process.platform === 'darwin' && app.isInApplicationsFolder?.() === false) {
-    return { ok: false, reason: 'Move the app to /Applications to receive updates' }
+
+  if (process.platform === 'darwin') {
+    if (app.isInApplicationsFolder?.() === false) {
+      return { ok: false, reason: 'Move the app to /Applications to receive updates' }
+    }
+    if (!(await macSignatureUsable())) {
+      return {
+        ok: false,
+        reason: 'This build is unsigned, so macOS will not install updates over it'
+      }
+    }
   }
   return { ok: true }
 }
 
-export function initUpdater(windowGetter: () => BrowserWindow | null): void {
+export async function initUpdater(windowGetter: () => BrowserWindow | null): Promise<void> {
   getWindow = windowGetter
 
-  const usable = updatability()
+  const usable = await updatability()
   if (!usable.ok) {
     publish({ status: 'unsupported', reason: usable.reason })
     return
