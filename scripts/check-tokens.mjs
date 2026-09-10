@@ -13,8 +13,14 @@ import { join, extname } from 'node:path'
 const SRC = 'src/renderer/src'
 const CSS_DIR = 'out/renderer/assets'
 
-/** shadcn/ui is CLI-generated; its classes are not ours to police. */
-const IGNORED_DIRS = ['components/ui']
+/**
+ * shadcn/ui is CLI-generated; its classes are not ours to police.
+ *
+ * Written with the platform separator: on Windows a path reads
+ * `components\ui`, so a hardcoded forward slash silently matches nothing and
+ * the check fails on CI for classes that were never ours.
+ */
+const IGNORED_DIRS = [join('components', 'ui')]
 
 /**
  * Prefixes whose values come from the theme. Layout utilities (`flex`, `w-1/2`)
