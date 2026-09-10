@@ -367,11 +367,19 @@ literally.
 edges, so it only means anything when the list is contiguous history — every
 commit's parents present, except at the boundary where the walk stopped. A
 search result is a *set* of matching commits, so most of its parents are
-absent and the lanes open without ever closing: eight matching commits
-produced six lanes in a repository whose real graph has three. The check is
-`isContiguousHistory`, decided from the data rather than from "is the user
-searching", so any future filter that punches holes is covered too. Scoping to
-a ref stays contiguous and keeps its graph.
+absent and the lanes open without ever closing.
+
+That is not cosmetic. In a 600-commit repository, searching by author matched
+200 commits and produced **200 lanes and 19,900 edges**. The graph column is
+sized from the lane count, so every row was indented 2806px — past the right
+edge of a 558px pane. The list read as empty: "200 matches" above, and nothing
+below it but a staircase of coloured lines.
+
+The check is `isContiguousHistory`, decided from the data rather than from "is
+the user searching", so any future filter that punches holes is covered too.
+The graph is not even built when it would be fiction, which also keeps a
+2 MB page of edge objects off the IPC boundary. Scoping to a ref stays
+contiguous and keeps its graph.
 
 The ref filter is client-side, because the whole list is already loaded. It
 matches subsequences — "fa" reaches "feature/auth" — but requires the
@@ -417,6 +425,14 @@ A scoped ref can vanish while it is still selected — the branch gets deleted,
 the tag removed, the remote pruned. `git log` then fails on an unknown
 revision, so the store drops the filter and reloads the full graph rather than
 leaving a stale list sitting behind an error.
+
+### Error boundaries
+
+Each pane renders inside one. React unmounts the whole tree when a render
+throws and nothing catches it, which in a desktop app reads as the program
+vanishing — no message, no window content, nothing to report. A boundary per
+pane keeps the rest of the app usable and puts the error somewhere it can be
+read.
 
 ### Virtualization
 

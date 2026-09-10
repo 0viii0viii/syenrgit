@@ -237,13 +237,14 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
       ...(req.paths !== undefined ? { paths: req.paths } : {}),
       ...(req.search !== undefined ? { search: req.search } : {})
     })
-    const graph = buildGraph(commits)
-    return {
-      commits,
-      graph,
-      graphWidth: graphWidth(graph),
-      contiguous: isContiguousHistory(commits)
-    }
+    // The graph is only built when it would mean something. For a search
+    // result the lanes are fiction, and expensive fiction: 200 commits
+    // matching an author in a 600-commit repository produced 200 lanes and
+    // 19,900 edges, one SVG path each — enough to take the renderer down,
+    // and it grows quadratically with the number of matches.
+    const contiguous = isContiguousHistory(commits)
+    const graph = contiguous ? buildGraph(commits) : []
+    return { commits, graph, graphWidth: contiguous ? graphWidth(graph) : 0, contiguous }
   })
 
   handle(IPC.commitDetail, (cwd: string, hash: string) => getCommitDetail(cwd, hash))

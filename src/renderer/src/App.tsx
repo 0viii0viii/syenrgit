@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { TitleBar } from '@/components/layout/TitleBar'
 import { StatusBar } from '@/components/layout/StatusBar'
 import { RefTree } from '@/components/layout/RefTree'
@@ -55,7 +56,9 @@ function Workspace(): React.JSX.Element {
   return (
     <ResizablePanelGroup orientation="horizontal">
       <ResizablePanel defaultSize="18%" minSize="12%" maxSize="32%">
-        <RefTree />
+        <ErrorBoundary label="The ref list">
+          <RefTree />
+        </ErrorBoundary>
       </ResizablePanel>
       <ResizableHandle />
 
@@ -74,23 +77,28 @@ function Workspace(): React.JSX.Element {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="changes" className="flex min-h-0 flex-1 flex-col">
-            <div className="min-h-0 flex-1">
-              <ChangeList />
-            </div>
-            <CommitBox />
+            <ErrorBoundary label="The change list">
+              <div className="min-h-0 flex-1">
+                <ChangeList />
+              </div>
+              <CommitBox />
+            </ErrorBoundary>
           </TabsContent>
           <TabsContent value="history" className="flex min-h-0 flex-1 flex-col">
-            <CommitSearchBar />
-            <HistoryFilter />
-            <div className="min-h-0 flex-1">
-              <CommitList />
-            </div>
+            <ErrorBoundary label="The history">
+              <CommitSearchBar />
+              <HistoryFilter />
+              <div className="min-h-0 flex-1">
+                <CommitList />
+              </div>
+            </ErrorBoundary>
           </TabsContent>
         </Tabs>
       </ResizablePanel>
       <ResizableHandle />
 
       <ResizablePanel defaultSize="44%">
+        <ErrorBoundary label="This pane">
         {tab === 'changes' ? (
           mergePath ? (
             <MergeEditor />
@@ -100,6 +108,7 @@ function Workspace(): React.JSX.Element {
         ) : (
           <HistoryPane />
         )}
+        </ErrorBoundary>
       </ResizablePanel>
     </ResizablePanelGroup>
   )

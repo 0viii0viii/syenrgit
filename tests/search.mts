@@ -146,6 +146,39 @@ const g = (...a: string[]) => execFileSync('git', a, { cwd, encoding: 'utf8' }).
   }
 }
 
+// --- the graph must not push the list off screen ---------------------------
+{
+  const { buildGraph, graphWidth, isContiguousHistory } = await import('@main/git/graph.js')
+
+  // Many commits by several authors, so a search matches a scattered subset —
+  // the shape that produced a lane per match and a 2806px indent, hiding
+  // every row off the right edge of the pane.
+  const wide = mkdtempSync(join(tmpdir(), 'wide-'))
+  execFileSync('git', ['init', '-q', '-b', 'main', wide])
+  const authors = ['Ada', 'Grace', 'Alan']
+  for (let i = 0; i < 90; i++) {
+    writeFileSync(join(wide, `f${i % 5}.txt`), `${i}\n`)
+    execFileSync('git', ['add', '-A'], { cwd: wide })
+    const who = authors[i % 3]
+    execFileSync('git', ['-c', `user.name=${who}`, '-c', `user.email=${who}@x.com`,
+      'commit', '-qm', `commit ${i}`], { cwd: wide })
+  }
+
+  const everything = await getLog({ cwd: wide })
+  ok('unfiltered history stays one lane', graphWidth(buildGraph(everything)) === 1,
+    String(graphWidth(buildGraph(everything))))
+
+  const scattered = await getLog({ cwd: wide, search: { author: 'Grace' } })
+  ok('a scattered search matches many commits', scattered.length === 30, String(scattered.length))
+  ok('  and is not contiguous', !isContiguousHistory(scattered))
+  // The number that mattered: one lane per match, each pushing the text right.
+  ok('  so its graph would open a lane per commit',
+    graphWidth(buildGraph(scattered)) >= scattered.length,
+    String(graphWidth(buildGraph(scattered))))
+
+  rmSync(wide, { recursive: true, force: true })
+}
+
 // --- a search result must not claim to be a graph ---------------------------
 {
   const { buildGraph, graphWidth, isContiguousHistory } = await import('@main/git/graph.js')
