@@ -1,6 +1,7 @@
 import { describeError } from '@/lib/errors'
 import { create } from 'zustand'
 import type { CommitDetail, CommitSummary, FileDiff, GraphRow, RefList } from '@shared/git'
+import type { CommitSearch } from '@shared/ipc'
 
 interface HistoryState {
   commits: CommitSummary[]
@@ -25,8 +26,17 @@ interface HistoryState {
    * reachable from them. Meaningless with no filter, and ignored there.
    */
   exclusive: boolean
+  /**
+   * Active commit search. Empty fields are omitted before the walk, so an
+   * all-empty search is the same as no search at all.
+   */
+  search: CommitSearch
+  /** True while a search is narrowing the list, for the empty state to explain. */
+  searching: boolean
 
   load: (root: string) => Promise<void>
+  setSearch: (root: string, search: CommitSearch) => Promise<void>
+  clearSearch: (root: string) => Promise<void>
   setFilter: (root: string, refs: string[]) => Promise<void>
   setExclusive: (root: string, exclusive: boolean) => Promise<void>
   /** Plain click solos a ref; additive toggles it in or out of the set. */
@@ -48,7 +58,9 @@ const EMPTY = {
   loading: false,
   error: null,
   filter: [],
-  exclusive: false
+  exclusive: false,
+  search: {},
+  searching: false
 } satisfies Omit<
   HistoryState,
   | 'load'
@@ -57,6 +69,8 @@ const EMPTY = {
   | 'reset'
   | 'setFilter'
   | 'setExclusive'
+  | 'setSearch'
+  | 'clearSearch'
   | 'toggleRef'
 >
 
@@ -65,13 +79,21 @@ export const useHistory = create<HistoryState>((set, get) => ({
 
   load: async (root) => {
     set({ loading: true })
-    const { filter, exclusive } = get()
+    const { filter, exclusive, search } = get()
+    // Blank fields would narrow the walk to nothing rather than being ignored.
+    const active: CommitSearch = {}
+    if (search.message?.trim()) active.message = search.message.trim()
+    if (search.author?.trim()) active.author = search.author.trim()
+    if (search.hash?.trim()) active.hash = search.hash.trim()
+    const searching = Object.keys(active).length > 0
+
     try {
       const [page, refs] = await Promise.all([
         window.api.log({
           cwd: root,
           limit: 500,
-          ...(filter.length > 0 ? { revisions: filter, exclusive } : {})
+          ...(filter.length > 0 ? { revisions: filter, exclusive } : {}),
+          ...(searching ? { search: active } : {})
         }),
         window.api.refs(root)
       ])
@@ -80,6 +102,7 @@ export const useHistory = create<HistoryState>((set, get) => ({
         graph: page.graph,
         graphWidth: page.graphWidth,
         refs,
+        searching,
         error: null
       })
 
@@ -103,6 +126,16 @@ export const useHistory = create<HistoryState>((set, get) => ({
     } finally {
       set({ loading: false })
     }
+  },
+
+  setSearch: async (root, search) => {
+    set({ search })
+    await get().load(root)
+  },
+
+  clearSearch: async (root) => {
+    set({ search: {}, searching: false })
+    await get().load(root)
   },
 
   setFilter: async (root, refs) => {

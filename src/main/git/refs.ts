@@ -62,8 +62,12 @@ export async function listRefs(cwd: string): Promise<RefList> {
     git(
       [
         'for-each-ref',
-        `--format=%(refname)${US}%(refname:short)${US}%(objectname)${US}%(committerdate:unix)`,
-        '--sort=-committerdate',
+        // `creatordate`, not `committerdate`: an annotated tag is a tag
+        // object, which has a tagger rather than a committer, so
+        // committerdate comes back empty and the date parses as 1970.
+        // creatordate is whichever of the two the object actually has.
+        `--format=%(refname)${US}%(refname:short)${US}%(objectname)${US}%(creatordate:unix)`,
+        '--sort=-creatordate',
         'refs/tags'
       ],
       { cwd }

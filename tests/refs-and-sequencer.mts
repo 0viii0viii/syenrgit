@@ -46,6 +46,19 @@ const g = (cwd: string, ...a: string[]) => execFileSync('git', a, { cwd, encodin
   ok('tag at an explicit commit',
     g(cwd, 'rev-parse', 'at-first^{commit}') === g(cwd, 'rev-parse', 'HEAD~1'))
 
+  // An annotated tag is a tag object, which has a tagger rather than a
+  // committer — reading committerdate gives an empty string and a 1970 date.
+  const dated = (await listRefs(cwd)).tags
+  const annotated = dated.find(t => t.name === 'v1.0.0')
+  const lightweight = dated.find(t => t.name === 'light')
+  ok('an annotated tag has a real date', (annotated?.date ?? 0) > 1_000_000_000,
+    String(annotated?.date))
+  ok('  and so does a lightweight one', (lightweight?.date ?? 0) > 1_000_000_000,
+    String(lightweight?.date))
+  ok('  tags are sorted newest first',
+    dated.every((t, i, a) => i === 0 || a[i - 1]!.date >= t.date),
+    dated.map(t => `${t.name}:${t.date}`).join(' '))
+
   await deleteTag(cwd, 'light')
   ok('delete removes it', !(await listRefs(cwd)).tags.some(t => t.name === 'light'))
   rmSync(cwd, { recursive: true, force: true })

@@ -1,4 +1,4 @@
-import { git } from './exec.js'
+import { git, gitLine } from './exec.js'
 import type { CommitDetail, CommitSummary, RefBadge } from '@shared/git.js'
 
 /**
@@ -88,6 +88,26 @@ function parseSummary(record: string): CommitSummary | null {
  */
 const DEFAULT_REVISIONS = ['--branches', '--tags', '--remotes', 'HEAD']
 
+/**
+ * What to match commits against.
+ *
+ * Every field is handed to `git log`, not applied to a page of results: a
+ * client-side filter can only ever search the commits already loaded, which
+ * silently hides everything older than the current page.
+ */
+export interface LogSearch {
+  /** Substring of the commit message, matched case-insensitively. */
+  message?: string
+  /** Substring of the author's name or email. */
+  author?: string
+  /**
+   * A commit id, full or abbreviated. Resolved separately from the walk,
+   * because `git log --grep` does not look at hashes and a user pasting one
+   * expects to land on that commit.
+   */
+  hash?: string
+}
+
 export interface LogRequest {
   cwd: string
   limit?: number
@@ -101,6 +121,8 @@ export interface LogRequest {
   exclusive?: boolean
   /** Limit history to these paths. */
   paths?: string[]
+  /** Narrow the walk to matching commits. */
+  search?: LogSearch
 }
 
 /**
@@ -140,7 +162,41 @@ function exclusiveArgs(revisions: string[]): string[] {
   return args
 }
 
+/**
+ * Resolve a commit id the user typed, full or abbreviated.
+ *
+ * `--grep` never matches a hash, so a pasted id would otherwise find nothing.
+ * Returns null when the text is not a commit in this repository.
+ */
+async function resolveHash(cwd: string, text: string): Promise<string | null> {
+  const candidate = text.trim()
+  // Anything that cannot be a hash is not worth a subprocess.
+  if (!/^[0-9a-fA-F]{4,40}$/.test(candidate)) return null
+  try {
+    // The ^{commit} suffix makes this fail on a tree or blob rather than
+    // returning something the log walk cannot use.
+    return await gitLine(['rev-parse', '--verify', '--quiet', `${candidate}^{commit}`], { cwd })
+  } catch {
+    return null
+  }
+}
+
 export async function getLog(req: LogRequest): Promise<CommitSummary[]> {
+  const search = req.search
+
+  // A hash match is an exact lookup, not a filter: the user wants that commit,
+  // and combining it with --grep would ask for a commit that matches both.
+  if (search?.hash) {
+    const resolved = await resolveHash(req.cwd, search.hash)
+    if (!resolved) return []
+    const raw = await git(
+      ['log', '--decorate=short', `--format=${SUMMARY_FORMAT}${RS}`, '--max-count=1', resolved],
+      { cwd: req.cwd }
+    )
+    const commit = parseSummary(raw.split(RS)[0]?.replace(/^\n/, '') ?? '')
+    return commit ? [commit] : []
+  }
+
   const args = [
     'log',
     // Topological order keeps a branch's commits contiguous, which is what
@@ -150,6 +206,14 @@ export async function getLog(req: LogRequest): Promise<CommitSummary[]> {
     `--format=${SUMMARY_FORMAT}${RS}`,
     `--max-count=${req.limit ?? 500}`,
     ...(req.skip ? [`--skip=${req.skip}`] : []),
+    // --regexp-ignore-case applies to both --grep and --author, and
+    // --fixed-strings keeps a message full of regex punctuation from being
+    // read as a pattern.
+    ...(search?.message || search?.author
+      ? ['--regexp-ignore-case', '--fixed-strings']
+      : []),
+    ...(search?.message ? [`--grep=${search.message}`] : []),
+    ...(search?.author ? [`--author=${search.author}`] : []),
     ...(req.revisions?.length ? req.revisions : DEFAULT_REVISIONS),
     ...(req.exclusive && req.revisions?.length ? exclusiveArgs(req.revisions) : []),
     ...(req.paths?.length ? ['--', ...req.paths] : [])

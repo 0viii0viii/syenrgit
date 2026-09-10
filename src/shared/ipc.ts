@@ -142,6 +142,19 @@ export interface StageRequest {
   paths: string[]
 }
 
+/**
+ * What to match commits against. Handed to `git log`, not applied to a loaded
+ * page — a client-side filter can only search what is already on screen.
+ */
+export interface CommitSearch {
+  /** Substring of the commit message, matched case-insensitively. */
+  message?: string
+  /** Substring of the author's name or email. */
+  author?: string
+  /** A commit id, full or abbreviated. */
+  hash?: string
+}
+
 export interface LogPageRequest {
   cwd: string
   limit?: number
@@ -152,6 +165,8 @@ export interface LogPageRequest {
   exclusive?: boolean
   /** Restrict history to these paths. */
   paths?: string[]
+  /** Narrow the walk to matching commits. */
+  search?: CommitSearch
 }
 
 /**

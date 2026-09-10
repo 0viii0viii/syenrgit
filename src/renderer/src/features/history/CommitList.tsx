@@ -34,6 +34,7 @@ export function CommitList(): React.JSX.Element {
   const selectCommit = useHistory((s) => s.selectCommit)
   const filter = useHistory((s) => s.filter)
   const exclusive = useHistory((s) => s.exclusive)
+  const searching = useHistory((s) => s.searching)
 
   const status = useRepo((s) => s.status)
   const busy = useActions((s) => s.busy)
@@ -77,8 +78,11 @@ export function CommitList(): React.JSX.Element {
   if (commits.length === 0) {
     // An empty exclusive view is a real answer — the branch is fully merged —
     // not a failure, and it should not read like one.
-    const message =
-      filter.length > 0
+    // A search that finds nothing is the most likely empty state once the
+    // box exists, so it takes precedence over the ref-filter wording.
+    const message = searching
+      ? 'No commits match this search'
+      : filter.length > 0
         ? exclusive
           ? 'No commits unique to these refs'
           : 'No commits on these refs'
@@ -86,10 +90,17 @@ export function CommitList(): React.JSX.Element {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-1 bg-surface-sunken">
         <p className="text-xs text-content-tertiary">{message}</p>
-        {filter.length > 0 && exclusive && (
+        {searching ? (
           <p className="text-2xs text-content-tertiary">
-            Everything here is reachable from another ref
+            Searching every commit, not just the loaded page
           </p>
+        ) : (
+          filter.length > 0 &&
+          exclusive && (
+            <p className="text-2xs text-content-tertiary">
+              Everything here is reachable from another ref
+            </p>
+          )
         )}
       </div>
     )

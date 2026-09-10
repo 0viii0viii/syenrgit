@@ -346,6 +346,30 @@ The algorithm is checked against git itself: 400 randomised three-way merges,
 where every clean merge must be byte-identical to `git merge-file -p` and every
 merge git reports as conflicting must be flagged as conflicting here.
 
+### Searching
+
+The history has a search box; the ref tree has a filter box.
+
+Commit search runs through `git log` — `--grep`, `--author`, or a `rev-parse`
+lookup for a commit id — rather than filtering the loaded page. A client-side
+filter can only ever search the commits already on screen, which silently hides
+everything older than the current page; the suite pins that down by burying a
+commit outside a five-commit page and finding it anyway.
+
+One box, not three. `author:name` and `by:name` narrow by author, `hash:` /
+`commit:` by id, and a bare query that looks like a commit id is treated as
+one — but only when it is the whole query, since a hex-looking word alongside
+others belongs to a message search. Everything else is a message search, run
+with `--fixed-strings` so a message full of regex punctuation matches
+literally.
+
+The ref filter is client-side, because the whole list is already loaded. It
+matches subsequences — "fa" reaches "feature/auth" — but requires the
+characters in order, or the filter stops being predictable. Matches are ranked
+exact, then prefix, then segment prefix ("auth" for "feature/**auth**"), then
+substring. A query also opens every collapsed section, since a section that
+stayed shut would hide its own matches.
+
 ### Scoping the graph to a ref
 
 Clicking a branch or tag in the ref tree limits the commit graph to what is

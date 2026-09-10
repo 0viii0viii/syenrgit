@@ -8,7 +8,9 @@ import {
   GitBranch,
   Lock,
   Plus,
-  Tag as TagIcon
+  Search,
+  Tag as TagIcon,
+  X
 } from 'lucide-react'
 import {
   ContextMenu,
@@ -17,6 +19,8 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger
 } from '@/components/ui/context-menu'
+import { Input } from '@/components/ui/input'
+import { matchesRef, refMatchScore } from '@/lib/fuzzy'
 import { cn } from '@/lib/utils'
 import { relativeTime } from '@/lib/format'
 import { useListMetrics } from '@/lib/list-metrics'
@@ -60,41 +64,58 @@ function groupRemotes(remotes: BranchRef[]): [string, BranchRef[]][] {
  * windowed like every other list in the app. Collapsed sections contribute
  * only their header, which is what keeps expanding a large remote cheap.
  */
+/** Order matches so the most likely one is on top, otherwise keep git's order. */
+function rank<T>(items: T[], query: string, nameOf: (item: T) => string): T[] {
+  if (query === '') return items
+  return items
+    .filter((item) => matchesRef(nameOf(item), query))
+    .sort((a, b) => refMatchScore(nameOf(a), query) - refMatchScore(nameOf(b), query))
+}
+
 function buildRows(
   refs: RefList,
   worktrees: Worktree[],
-  expanded: ReadonlySet<string>
+  expanded: ReadonlySet<string>,
+  query: string
 ): Row[] {
   const rows: Row[] = []
 
   const section = (id: string, title: string, icon: Icon, count: number): boolean => {
     if (count === 0) return false
     rows.push({ kind: 'header', id, title, icon, count })
-    return expanded.has(id)
+    // While filtering, a collapsed section would hide its own matches — so a
+    // query opens every section that still has one.
+    return expanded.has(id) || query !== ''
   }
 
-  if (section('local', 'Branches', GitBranch, refs.local.length)) {
-    for (const branch of refs.local) rows.push({ kind: 'branch', branch })
+  const local = rank(refs.local, query, (b) => b.name)
+  if (section('local', 'Branches', GitBranch, local.length)) {
+    for (const branch of local) rows.push({ kind: 'branch', branch })
   }
 
   for (const [remote, branches] of groupRemotes(refs.remote)) {
-    if (section(`remote:${remote}`, remote, Cloud, branches.length)) {
-      for (const branch of branches) rows.push({ kind: 'branch', branch })
+    const matched = rank(branches, query, (b) => b.name)
+    if (section(`remote:${remote}`, remote, Cloud, matched.length)) {
+      for (const branch of matched) rows.push({ kind: 'branch', branch })
     }
   }
 
-  if (section('tags', 'Tags', TagIcon, refs.tags.length)) {
-    for (const tag of refs.tags) rows.push({ kind: 'tag', tag })
+  const tags = rank(refs.tags, query, (t) => t.name)
+  if (section('tags', 'Tags', TagIcon, tags.length)) {
+    for (const tag of tags) rows.push({ kind: 'tag', tag })
   }
 
-  if (section('stashes', 'Stashes', Archive, refs.stashes.length)) {
-    for (const stash of refs.stashes) rows.push({ kind: 'stash', stash })
+  // Stashes are matched on their message, which is the only name they have.
+  const stashes = rank(refs.stashes, query, (s) => s.message)
+  if (section('stashes', 'Stashes', Archive, stashes.length)) {
+    for (const stash of stashes) rows.push({ kind: 'stash', stash })
   }
 
   // Only worth a section once there is more than the main working tree, which
   // every repository has.
-  if (worktrees.length > 1 && section('worktrees', 'Worktrees', FolderTree, worktrees.length)) {
-    for (const worktree of worktrees) rows.push({ kind: 'worktree', worktree })
+  const trees = rank(worktrees, query, (w) => `${w.path} ${w.label}`)
+  if (worktrees.length > 1 && section('worktrees', 'Worktrees', FolderTree, trees.length)) {
+    for (const worktree of trees) rows.push({ kind: 'worktree', worktree })
   }
 
   return rows
@@ -507,9 +528,10 @@ export function RefTree(): React.JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const worktrees = useActions((s) => s.worktrees)
+  const [query, setQuery] = useState('')
   const rows = useMemo(
-    () => (refs ? buildRows(refs, worktrees, expanded) : []),
-    [refs, worktrees, expanded]
+    () => (refs ? buildRows(refs, worktrees, expanded, query.trim()) : []),
+    [refs, worktrees, expanded, query]
   )
   const headerIndexes = useMemo(
     () => rows.reduce<number[]>((acc, r, i) => (r.kind === 'header' ? [...acc, i] : acc), []),
@@ -560,12 +582,44 @@ export function RefTree(): React.JSX.Element {
     )
   }
 
+  const filterBox = (
+    <div className="flex h-6 shrink-0 items-center gap-1.5 border-b border-border-subtle px-2">
+      <Search className="size-3 shrink-0 text-content-tertiary" />
+      <Input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && query !== '') {
+            e.preventDefault()
+            setQuery('')
+          }
+        }}
+        spellCheck={false}
+        placeholder="Filter refs"
+        aria-label="Filter refs"
+        className="h-5 min-w-0 flex-1 border-0 bg-transparent px-0 text-2xs shadow-none focus-visible:ring-0"
+      />
+      {query !== '' && (
+        <button
+          type="button"
+          aria-label="Clear ref filter"
+          onClick={() => setQuery('')}
+          className="flex size-4 shrink-0 items-center justify-center rounded-xs text-content-tertiary hover:bg-surface-active hover:text-content-primary"
+        >
+          <X className="size-2.5" />
+        </button>
+      )}
+    </div>
+  )
+
   return (
-    <div
-      ref={scrollRef}
-      className="scroll-thin h-full overflow-auto bg-surface-app"
-      aria-label="References"
-    >
+    <div className="flex h-full flex-col bg-surface-app">
+      {filterBox}
+      <div
+        ref={scrollRef}
+        className="scroll-thin min-h-0 flex-1 overflow-auto"
+        aria-label="References"
+      >
       <div className="relative" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((item) => {
           const row = rows[item.index]
@@ -631,9 +685,10 @@ export function RefTree(): React.JSX.Element {
               ) : (
                 <StashRow stash={row.stash} />
               )}
-            </div>
-          )
-        })}
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       <NewBranchDialog open={newBranchOpen} onOpenChange={setNewBranchOpen} />

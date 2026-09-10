@@ -128,6 +128,23 @@ export async function addWorktree(options: AddWorktreeOptions): Promise<string> 
 
   const start = ref === undefined ? undefined : detach ? ref : shortBranchName(ref)
 
+  // Checked against the worktree list rather than by matching git's refusal:
+  // the wording changed between 2.39 ("is already checked out at") and 2.55
+  // ("is already used by worktree at"), and a message this app depends on
+  // should not be one git is free to rephrase.
+  const wanted = newBranch ?? (detach ? undefined : start)
+  if (wanted !== undefined) {
+    const held = (await listWorktrees(cwd)).find(
+      (w) => w.branch !== null && shortBranchName(w.branch) === wanted
+    )
+    if (held) {
+      throw new Error(
+        `${wanted} is already checked out in ${held.path}. ` +
+          'A branch can only be in one worktree at a time.'
+      )
+    }
+  }
+
   const args = [
     'worktree',
     'add',
@@ -141,14 +158,8 @@ export async function addWorktree(options: AddWorktreeOptions): Promise<string> 
     await git(args, { cwd })
   } catch (err) {
     if (err instanceof GitError) {
-      const already = /is already checked out at '(.+)'/.exec(err.stderr)
-      if (already) {
-        throw new Error(
-          `${newBranch ?? (ref ? shortBranchName(ref) : 'That branch')} is already checked out in ${already[1]}. ` +
-            'A branch can only be in one worktree at a time.',
-          { cause: err }
-        )
-      }
+      // Git's own text is the most useful thing left to say; the one case
+      // worth rewriting was handled before the attempt.
       throw new Error(err.stderr.trim() || err.message, { cause: err })
     }
     throw err
@@ -175,24 +186,39 @@ export interface RemoveWorktreeOptions {
  */
 export async function removeWorktree(options: RemoveWorktreeOptions): Promise<string> {
   const { cwd, path, force } = options
+
+  // Both refusals are decided from the worktree list rather than from git's
+  // prose. Its wording is not a contract — "is already checked out at" became
+  // "is already used by worktree at" between 2.39 and 2.55 — and a message
+  // this app branches on should not be one git is free to rephrase.
+  const entry = (await listWorktrees(cwd)).find((w) => w.path === path)
+  if (entry?.isMain) throw new Error('The main working tree cannot be removed.')
+
   try {
     await git(['worktree', 'remove', ...(force ? ['--force'] : []), path], { cwd })
   } catch (err) {
     if (err instanceof GitError) {
-      if (/contains modified or untracked files/.test(err.stderr)) {
+      // Git refuses when the directory holds uncommitted work. Rather than
+      // matching that sentence, ask the worktree itself.
+      if (!force && (await hasUncommittedChanges(path))) {
         throw new Error(
           'That worktree has uncommitted changes. Remove it anyway to discard them.',
           { cause: err }
         )
-      }
-      if (/is a main working tree/.test(err.stderr)) {
-        throw new Error('The main working tree cannot be removed.', { cause: err })
       }
       throw new Error(err.stderr.trim() || err.message, { cause: err })
     }
     throw err
   }
   return 'Worktree removed'
+}
+
+/** True when a worktree holds changes that removing it would throw away. */
+async function hasUncommittedChanges(path: string): Promise<boolean> {
+  const raw = await git(['status', '--porcelain', '--untracked-files=all'], {
+    cwd: path
+  }).catch(() => '')
+  return raw.trim() !== ''
 }
 
 /** Forget worktrees whose directories are gone. */

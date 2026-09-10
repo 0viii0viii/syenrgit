@@ -256,11 +256,16 @@ export async function deleteBranch(options: DeleteBranchOptions): Promise<string
   try {
     await git(['branch', '--delete', ...(force ? ['--force'] : []), name], { cwd })
   } catch (err) {
-    if (err instanceof GitError && /not fully merged/i.test(err.stderr)) {
-      throw new Error(
-        `${name} has commits that exist nowhere else. Delete it anyway to discard them.`,
-        { cause: err }
-      )
+    if (err instanceof GitError) {
+      // Decided by asking whether the branch is contained anywhere else, not
+      // by matching git's sentence — its wording is not a contract.
+      if (!force && !(await isBranchMerged(cwd, name))) {
+        throw new Error(
+          `${name} has commits that exist nowhere else. Delete it anyway to discard them.`,
+          { cause: err }
+        )
+      }
+      throw new Error(err.stderr.trim() || err.message, { cause: err })
     }
     throw err
   }

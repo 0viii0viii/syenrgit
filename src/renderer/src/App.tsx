@@ -11,6 +11,7 @@ import { CommitBox } from '@/features/changes/CommitBox'
 import { DiffPanel } from '@/features/diff/DiffView'
 import { StagingDiff } from '@/features/diff/StagingDiff'
 import { CommitList } from '@/features/history/CommitList'
+import { CommitSearchBar } from '@/features/history/CommitSearchBar'
 import { HistoryFilter } from '@/features/history/HistoryFilter'
 import { CommitDetail } from '@/features/history/CommitDetail'
 import { MergeEditor } from '@/features/conflict/MergeEditor'
@@ -79,6 +80,7 @@ function Workspace(): React.JSX.Element {
             <CommitBox />
           </TabsContent>
           <TabsContent value="history" className="flex min-h-0 flex-1 flex-col">
+            <CommitSearchBar />
             <HistoryFilter />
             <div className="min-h-0 flex-1">
               <CommitList />

@@ -31,6 +31,7 @@ interface Snapshot {
   fileDiff: FileDiff | null
   filter: string[]
   exclusive: boolean
+  search: import('@shared/ipc').CommitSearch
 }
 
 // Deliberately still 'forgit': renaming the key would silently drop the open
@@ -91,7 +92,8 @@ function capture(): Snapshot {
     selectedFile: history.selectedFile,
     fileDiff: history.fileDiff,
     filter: history.filter,
-    exclusive: history.exclusive
+    exclusive: history.exclusive,
+    search: history.search
   }
 }
 
@@ -115,6 +117,7 @@ function apply(root: string, snapshot: Snapshot): void {
     fileDiff: snapshot.fileDiff,
     filter: snapshot.filter,
     exclusive: snapshot.exclusive,
+    search: snapshot.search,
     error: null
   })
 }

@@ -234,7 +234,8 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
       ...(req.skip !== undefined ? { skip: req.skip } : {}),
       ...(req.revisions !== undefined ? { revisions: req.revisions } : {}),
       ...(req.exclusive !== undefined ? { exclusive: req.exclusive } : {}),
-      ...(req.paths !== undefined ? { paths: req.paths } : {})
+      ...(req.paths !== undefined ? { paths: req.paths } : {}),
+      ...(req.search !== undefined ? { search: req.search } : {})
     })
     const graph = buildGraph(commits)
     return { commits, graph, graphWidth: graphWidth(graph) }
