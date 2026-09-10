@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync, existsSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { realpathSync } from 'node:fs'
@@ -45,9 +45,16 @@ ok('gitCommonDir is the shared one', common.endsWith('.git') && !common.includes
 ok('  and it is absolute', common.startsWith('/') || /^[A-Za-z]:/.test(common), common)
 ok('the two differ inside a linked worktree', dir !== common)
 
-// The gap the watcher used to have.
-ok('branches live only in the common directory',
-  !existsSync(join(dir, 'refs')) && existsSync(join(common, 'refs')))
+// The gap the watcher used to have. Asserted through `--git-path`, which is
+// what git itself resolves, rather than the presence of a directory: newer git
+// pre-creates a per-worktree `refs/` for per-worktree refs like refs/bisect,
+// so testing for its absence passes on one git version and fails on another.
+const branchRefPath = g(linked, 'rev-parse', '--git-path', 'refs/heads/feature')
+const headPath = g(linked, 'rev-parse', '--git-path', 'HEAD')
+ok('a branch ref resolves into the common directory',
+  branchRefPath.startsWith(common), branchRefPath)
+ok('  while HEAD resolves into the per-worktree one',
+  headPath.startsWith(dir), headPath)
 
 // In an ordinary repository the two must coincide, or the watcher would
 // attach the same directory twice.

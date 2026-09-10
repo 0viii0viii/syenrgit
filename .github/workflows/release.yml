@@ -40,6 +40,20 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Configure git for the test fixtures
+        # The suites build throwaway repositories and commit into them.
+        run: |
+          git config --global user.name "CI"
+          git config --global user.email "ci@example.com"
+          git config --global init.defaultBranch main
+
+      - name: Check
+        # A release must not ship from a commit whose tests fail. The push
+        # workflow already runs these, but a tag can point anywhere, and
+        # v0.3.0 went out from a red build precisely because nothing here
+        # looked.
+        run: pnpm lint && pnpm typecheck && pnpm test
+
       - run: pnpm build
 
       - name: Package
