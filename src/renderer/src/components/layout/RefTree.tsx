@@ -1,0 +1,499 @@
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { defaultRangeExtractor, useVirtualizer, type Range } from '@tanstack/react-virtual'
+import { Archive, ChevronRight, Cloud, GitBranch, Plus, Tag as TagIcon } from 'lucide-react'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger
+} from '@/components/ui/context-menu'
+import { cn } from '@/lib/utils'
+import { relativeTime } from '@/lib/format'
+import { useListMetrics } from '@/lib/list-metrics'
+import { NewBranchDialog } from '@/features/branches/NewBranchDialog'
+import { useActions } from '@/stores/actions'
+import { useHistory } from '@/stores/history'
+import { useRepo } from '@/stores/repo'
+import type { BranchRef, RefList, StashEntry, TagRef } from '@shared/git'
+
+type Icon = React.ComponentType<{ className?: string }>
+
+type Row =
+  | { kind: 'header'; id: string; title: string; icon: Icon; count: number }
+  | { kind: 'branch'; branch: BranchRef }
+  | { kind: 'tag'; tag: TagRef }
+  | { kind: 'stash'; stash: StashEntry }
+
+const OVERSCAN = 12
+
+/** Group remote-tracking branches under their remote name. */
+function groupRemotes(remotes: BranchRef[]): [string, BranchRef[]][] {
+  const grouped = new Map<string, BranchRef[]>()
+  for (const ref of remotes) {
+    const slash = ref.name.indexOf('/')
+    const remote = slash === -1 ? ref.name : ref.name.slice(0, slash)
+    const list = grouped.get(remote)
+    if (list) list.push(ref)
+    else grouped.set(remote, [ref])
+  }
+  return [...grouped]
+}
+
+/**
+ * Flatten the ref tree into one indexable sequence, honouring collapse state.
+ *
+ * A monorepo can carry thousands of remote-tracking branches, so this list is
+ * windowed like every other list in the app. Collapsed sections contribute
+ * only their header, which is what keeps expanding a large remote cheap.
+ */
+function buildRows(refs: RefList, expanded: ReadonlySet<string>): Row[] {
+  const rows: Row[] = []
+
+  const section = (id: string, title: string, icon: Icon, count: number): boolean => {
+    if (count === 0) return false
+    rows.push({ kind: 'header', id, title, icon, count })
+    return expanded.has(id)
+  }
+
+  if (section('local', 'Branches', GitBranch, refs.local.length)) {
+    for (const branch of refs.local) rows.push({ kind: 'branch', branch })
+  }
+
+  for (const [remote, branches] of groupRemotes(refs.remote)) {
+    if (section(`remote:${remote}`, remote, Cloud, branches.length)) {
+      for (const branch of branches) rows.push({ kind: 'branch', branch })
+    }
+  }
+
+  if (section('tags', 'Tags', TagIcon, refs.tags.length)) {
+    for (const tag of refs.tags) rows.push({ kind: 'tag', tag })
+  }
+
+  if (section('stashes', 'Stashes', Archive, refs.stashes.length)) {
+    for (const stash of refs.stashes) rows.push({ kind: 'stash', stash })
+  }
+
+  return rows
+}
+
+/**
+ * Only local branches start expanded. Tracked as an opt-in set rather than an
+ * opt-out one because remote section ids are derived from the remote names: a
+ * collapsed-by-default list cannot enumerate them, and a repo with thousands
+ * of remote-tracking branches should not expand them unasked.
+ */
+const DEFAULT_EXPANDED = new Set(['local'])
+
+/**
+ * A row that scopes the commit graph to its ref.
+ *
+ * Plain click solos the ref; cmd/ctrl-click adds it to the current selection
+ * so two branches can be compared side by side in one graph.
+ */
+function useRefFilter(refName: string): {
+  filtered: boolean
+  onClick: (e: React.MouseEvent) => void
+} {
+  const root = useRepo((s) => s.root)
+  const setTab = useRepo((s) => s.setTab)
+  const filter = useHistory((s) => s.filter)
+  const toggleRef = useHistory((s) => s.toggleRef)
+
+  return {
+    filtered: filter.includes(refName),
+    onClick: (e) => {
+      if (!root) return
+      // Filtering only affects history, so show it — otherwise the click looks
+      // like it did nothing.
+      setTab('history')
+      void toggleRef(root, refName, e.metaKey || e.ctrlKey)
+    }
+  }
+}
+
+function BranchRow({ branch }: { branch: BranchRef }): React.JSX.Element {
+  const { filtered, onClick } = useRefFilter(branch.refName)
+  const [newBranchOpen, setNewBranchOpen] = useState(false)
+  const root = useRepo((s) => s.root)
+  const status = useRepo((s) => s.status)
+  const busy = useActions((s) => s.busy)
+  const checkout = useActions((s) => s.checkout)
+  const merge = useActions((s) => s.merge)
+  const rebase = useActions((s) => s.rebase)
+  const deleteBranch = useActions((s) => s.deleteBranch)
+
+  const current = status?.branch.name
+  const operation = status?.operation ?? 'none'
+  // Merging or checking out on top of an unfinished operation would fail
+  // anyway; refusing up front says why instead of surfacing git's error.
+  const mid = operation !== 'none'
+
+  const row = (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick(e as unknown as React.MouseEvent)
+        }
+      }}
+      className={cn(
+        'flex h-full cursor-default items-center gap-1.5 pl-6 pr-2 text-xs',
+        'hover:bg-surface-hover',
+        filtered && 'bg-surface-selected hover:bg-surface-selected'
+      )}
+      title={`${branch.name}\n${branch.subject}`}
+    >
+      <span
+        className={cn(
+          'min-w-0 flex-1 truncate',
+          // The checked-out branch is the one piece of state a user scans this
+          // list for; everything else stays at normal weight.
+          branch.isHead && 'font-semibold text-content-link'
+        )}
+      >
+        {branch.name}
+      </span>
+      {branch.ahead > 0 && (
+        <span className="shrink-0 text-2xs tabular-nums text-sync-ahead">&uarr;{branch.ahead}</span>
+      )}
+      {branch.behind > 0 && (
+        <span className="shrink-0 text-2xs tabular-nums text-sync-behind">
+          &darr;{branch.behind}
+        </span>
+      )}
+      <span className="w-8 shrink-0 text-right text-2xs text-content-tertiary">
+        {relativeTime(branch.date)}
+      </span>
+    </div>
+  )
+
+  if (!root) return row
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
+      <ContextMenuContent className="w-56">
+        <ContextMenuItem
+          disabled={busy !== null || mid || branch.isHead}
+          onSelect={() => void checkout(root, branch.name)}
+        >
+          {branch.isHead ? 'Already checked out' : `Checkout ${branch.name}`}
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          disabled={busy !== null || mid || branch.isHead || !current}
+          onSelect={() => void merge(root, branch.name, false)}
+        >
+          Merge into {current ?? 'HEAD'}
+        </ContextMenuItem>
+        <ContextMenuItem
+          disabled={busy !== null || mid || branch.isHead || !current}
+          onSelect={() => void merge(root, branch.name, true)}
+        >
+          Merge without fast-forward
+        </ContextMenuItem>
+        <ContextMenuItem
+          disabled={busy !== null || mid || branch.isHead || !current}
+          onSelect={() => void rebase(root, branch.name)}
+        >
+          Rebase {current ?? 'HEAD'} onto {branch.name}
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem disabled={busy !== null} onSelect={() => setNewBranchOpen(true)}>
+          New branch from {branch.name}
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        {/* Two entries rather than one with a confirm: the unforced delete
+            refuses to drop commits that exist nowhere else, and that refusal
+            is the whole safety of the operation. */}
+        <ContextMenuItem
+          variant="destructive"
+          disabled={busy !== null || branch.isHead}
+          onSelect={() => void deleteBranch(root, branch.name, false)}
+        >
+          {branch.isHead ? 'Cannot delete the current branch' : `Delete ${branch.name}`}
+        </ContextMenuItem>
+        <ContextMenuItem
+          variant="destructive"
+          disabled={busy !== null || branch.isHead}
+          onSelect={() => void deleteBranch(root, branch.name, true)}
+        >
+          Delete, discarding unmerged commits
+        </ContextMenuItem>
+      </ContextMenuContent>
+
+      <NewBranchDialog
+        open={newBranchOpen}
+        onOpenChange={setNewBranchOpen}
+        startPoint={branch.refName}
+      />
+    </ContextMenu>
+  )
+}
+
+/**
+ * Rest props are spread onto the row element and the ref is forwarded, because
+ * a Radix `asChild` trigger clones this element and injects its handlers as
+ * props. A component that drops them silently renders a row that looks right
+ * and does nothing.
+ */
+function SimpleRow({
+  label,
+  date,
+  refName,
+  ref,
+  ...rest
+}: {
+  label: string
+  date: number
+  /** Omitted for stashes, which are not a place history can be scoped to. */
+  refName?: string
+} & React.ComponentPropsWithRef<'div'>): React.JSX.Element {
+  const { filtered, onClick } = useRefFilter(refName ?? '')
+  const selectable = refName !== undefined
+  const row = (
+    <div
+      ref={ref}
+      {...(selectable ? { role: 'button', tabIndex: 0, onClick } : {})}
+      {...rest}
+      className={cn(
+        'flex h-full cursor-default items-center gap-1.5 pl-6 pr-2 text-xs',
+        'hover:bg-surface-hover',
+        selectable && filtered && 'bg-surface-selected hover:bg-surface-selected'
+      )}
+      title={label}
+    >
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="w-8 shrink-0 text-right text-2xs text-content-tertiary">
+        {relativeTime(date)}
+      </span>
+    </div>
+  )
+
+  return refName?.startsWith('refs/tags/') ? (
+    <TagMenu name={refName.slice('refs/tags/'.length)}>{row}</TagMenu>
+  ) : (
+    row
+  )
+}
+
+function StashRow({ stash }: { stash: StashEntry }): React.JSX.Element {
+  const root = useRepo((s) => s.root)
+  const busy = useActions((s) => s.busy)
+  const stashApply = useActions((s) => s.stashApply)
+  const stashDrop = useActions((s) => s.stashDrop)
+
+  const row = <SimpleRow label={stash.message} date={stash.date} />
+  if (!root) return row
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
+      <ContextMenuContent className="w-56">
+        <ContextMenuItem
+          disabled={busy !== null}
+          onSelect={() => void stashApply(root, stash.ref, false)}
+        >
+          Apply, keeping the stash
+        </ContextMenuItem>
+        <ContextMenuItem
+          disabled={busy !== null}
+          onSelect={() => void stashApply(root, stash.ref, true)}
+        >
+          Pop &mdash; apply and remove
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          variant="destructive"
+          disabled={busy !== null}
+          onSelect={() => void stashDrop(root, stash.ref)}
+        >
+          Drop {stash.ref}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  )
+}
+
+/**
+ * A tag is published on its own schedule — cutting a release is a separate act
+ * from publishing the branch it sits on — so pushing one is offered here
+ * rather than folded into the branch push.
+ */
+function TagMenu({
+  name,
+  children
+}: {
+  name: string
+  children: React.ReactElement
+}): React.JSX.Element {
+  const root = useRepo((s) => s.root)
+  const busy = useActions((s) => s.busy)
+  const remotes = useActions((s) => s.remotes)
+  const pushTags = useActions((s) => s.pushTags)
+  const deleteTag = useActions((s) => s.deleteTag)
+
+  if (!root) return children
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
+      <ContextMenuContent className="w-56">
+        {remotes.length === 0 ? (
+          <ContextMenuItem disabled>No remote configured</ContextMenuItem>
+        ) : (
+          remotes.map((remote) => (
+            <ContextMenuItem
+              key={remote.name}
+              disabled={busy !== null}
+              onSelect={() => void pushTags(root, remote.name, name)}
+            >
+              Push {name} to {remote.name}
+            </ContextMenuItem>
+          ))
+        )}
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          variant="destructive"
+          disabled={busy !== null}
+          onSelect={() => void deleteTag(root, name)}
+        >
+          Delete tag {name}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  )
+}
+
+export function RefTree(): React.JSX.Element {
+  const refs = useHistory((s) => s.refs)
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(DEFAULT_EXPANDED)
+  const [newBranchOpen, setNewBranchOpen] = useState(false)
+
+  const metrics = useListMetrics()
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  const rows = useMemo(
+    () => (refs ? buildRows(refs, expanded) : []),
+    [refs, expanded]
+  )
+  const headerIndexes = useMemo(
+    () => rows.reduce<number[]>((acc, r, i) => (r.kind === 'header' ? [...acc, i] : acc), []),
+    [rows]
+  )
+
+  const stickyIndex = useRef(-1)
+
+  const rangeExtractor = useCallback(
+    (range: Range) => {
+      let active = -1
+      for (const i of headerIndexes) {
+        if (i <= range.startIndex) active = i
+        else break
+      }
+      stickyIndex.current = active
+      const set = new Set(defaultRangeExtractor(range))
+      if (active >= 0) set.add(active)
+      return [...set].sort((a, b) => a - b)
+    },
+    [headerIndexes]
+  )
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: (i) => (rows[i]?.kind === 'header' ? metrics.header : metrics.row),
+    overscan: OVERSCAN,
+    rangeExtractor
+  })
+
+  const toggle = (id: string): void => {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  if (!refs) return <div className="h-full bg-surface-app" />
+
+  if (rows.length === 0) {
+    return (
+      <div className="h-full bg-surface-app">
+        <p className="p-3 text-center text-2xs text-content-tertiary">No refs</p>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      ref={scrollRef}
+      className="scroll-thin h-full overflow-auto bg-surface-app"
+      aria-label="References"
+    >
+      <div className="relative" style={{ height: virtualizer.getTotalSize() }}>
+        {virtualizer.getVirtualItems().map((item) => {
+          const row = rows[item.index]
+          if (!row) return null
+          const isSticky = row.kind === 'header' && item.index === stickyIndex.current
+
+          return (
+            <div
+              key={item.index}
+              className={cn('left-0 w-full', isSticky ? 'sticky top-0 z-10' : 'absolute top-0')}
+              style={{
+                height: item.size,
+                ...(isSticky ? {} : { transform: `translateY(${item.start}px)` })
+              }}
+            >
+              {row.kind === 'header' ? (
+                <div className="group flex h-full items-center bg-surface-app pr-1">
+                  <button
+                    type="button"
+                    onClick={() => toggle(row.id)}
+                    aria-expanded={expanded.has(row.id)}
+                    className="flex h-full min-w-0 flex-1 items-center gap-1 px-2 text-2xs font-semibold uppercase tracking-wide text-content-tertiary hover:bg-surface-hover"
+                  >
+                    <ChevronRight
+                      className={cn(
+                        'size-3 transition-transform duration-100',
+                        expanded.has(row.id) && 'rotate-90'
+                      )}
+                    />
+                    <row.icon className="size-3" />
+                    <span className="flex-1 truncate text-left">{row.title}</span>
+                    <span className="font-normal normal-case">{row.count}</span>
+                  </button>
+                  {row.id === 'local' && (
+                    <button
+                      type="button"
+                      aria-label="New branch"
+                      title="New branch from HEAD"
+                      onClick={() => setNewBranchOpen(true)}
+                      className="flex size-4 shrink-0 items-center justify-center rounded-xs text-content-tertiary opacity-0 hover:bg-surface-active hover:text-content-primary group-hover:opacity-100 focus-visible:opacity-100"
+                    >
+                      <Plus className="size-3" />
+                    </button>
+                  )}
+                </div>
+              ) : row.kind === 'branch' ? (
+                <BranchRow branch={row.branch} />
+              ) : row.kind === 'tag' ? (
+                <SimpleRow label={row.tag.name} date={row.tag.date} refName={row.tag.refName} />
+              ) : (
+                <StashRow stash={row.stash} />
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <NewBranchDialog open={newBranchOpen} onOpenChange={setNewBranchOpen} />
+    </div>
+  )
+}

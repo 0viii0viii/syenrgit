@@ -1,0 +1,135 @@
+import { useEffect, useRef, useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
+import { isStaged } from '@/lib/git-status'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
+import { Archive } from 'lucide-react'
+import { useActions } from '@/stores/actions'
+import { useRepo } from '@/stores/repo'
+
+/**
+ * Commit box at the foot of the change list.
+ *
+ * During a merge it prefills git's own MERGE_MSG and commits the merge — the
+ * same `git commit` either way, since git decides from MERGE_HEAD whether the
+ * result has one parent or two.
+ */
+export function CommitBox(): React.JSX.Element | null {
+  const root = useRepo((s) => s.root)
+  const status = useRepo((s) => s.status)
+  const busy = useActions((s) => s.busy)
+  const commit = useActions((s) => s.commit)
+  const stash = useActions((s) => s.stash)
+
+  const [message, setMessage] = useState('')
+  // A ref, not state: this only guards the fetch, and writing it during the
+  // effect would cost a render pass for something nothing displays.
+  const prefilledFor = useRef<string | null>(null)
+
+  const merging = status?.operation === 'merge'
+  const stagedCount = status?.files.filter(isStaged).length ?? 0
+  const conflicts = status?.files.filter((f) => f.conflicted).length ?? 0
+
+  // Pull git's prepared merge message in once per merge, and never over an
+  // edit the user has already started.
+  useEffect(() => {
+    if (!merging) {
+      prefilledFor.current = null
+      return
+    }
+    if (!root || prefilledFor.current === root) return
+
+    prefilledFor.current = root
+    let cancelled = false
+    void window.api.mergeMessage(root).then((prepared) => {
+      if (cancelled || !prepared) return
+      setMessage((current) => (current.trim() === '' ? prepared : current))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [root, merging])
+
+  if (!root) return null
+
+  const blocked = conflicts > 0
+  const nothingStaged = stagedCount === 0 && !merging
+  const disabled = busy !== null || blocked || nothingStaged || message.trim() === ''
+
+  const label = merging ? 'Commit merge' : 'Commit'
+  const hint = blocked
+    ? `${conflicts} conflict${conflicts === 1 ? '' : 's'} left to resolve`
+    : nothingStaged
+      ? 'Nothing staged'
+      : merging
+        ? 'Merge in progress'
+        : `${stagedCount} staged`
+
+  return (
+    <div className="shrink-0 space-y-1.5 border-t border-border-subtle bg-surface-app p-2">
+      <Textarea
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder={merging ? 'Merge message' : 'Commit message'}
+        spellCheck={false}
+        className="selectable h-16 min-h-0 resize-none bg-surface-inset text-xs leading-normal"
+        onKeyDown={(e) => {
+          // Cmd/Ctrl+Enter commits, the convention every git GUI shares.
+          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !disabled) {
+            e.preventDefault()
+            void commit(root, message).then((done) => done && setMessage(''))
+          }
+        }}
+      />
+      <div className="flex items-center gap-2">
+        <span
+          className={cn(
+            'truncate text-2xs',
+            blocked ? 'text-status-conflicted' : 'text-content-tertiary'
+          )}
+        >
+          {hint}
+        </span>
+
+        {/* Stashing mid-merge would shelve a half-finished merge; git allows
+            it but restoring it later is a trap, so it is offered only on a
+            plain dirty tree. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy !== null || merging || (status?.files.length ?? 0) === 0}
+              className="ml-auto h-6 gap-1 px-1.5 text-2xs"
+            >
+              <Archive className="size-3" />
+              Stash
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem onSelect={() => void stash(root, message, false)}>
+              Stash tracked changes
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void stash(root, message, true)}>
+              Stash, including untracked
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button
+          size="sm"
+          className="h-6 px-2 text-2xs"
+          disabled={disabled}
+          onClick={() => void commit(root, message).then((done) => done && setMessage(''))}
+        >
+          {busy === 'commit' ? 'Committing…' : label}
+        </Button>
+      </div>
+    </div>
+  )
+}

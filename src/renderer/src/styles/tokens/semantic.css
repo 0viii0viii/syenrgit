@@ -1,0 +1,141 @@
+/* ---------------------------------------------------------------------------
+ * LAYER 2 — SEMANTIC
+ *
+ * Role-based tokens. Everything here is a var() reference into primitives.css;
+ * no literal values. This layer also satisfies the shadcn/ui variable contract
+ * (--background, --foreground, --primary, --border, --ring, ...) so shadcn
+ * components inherit the design system for free.
+ * ------------------------------------------------------------------------ */
+
+:root {
+  /* -- Surfaces (ascending elevation) ------------------------------------- */
+  --surface-app:      var(--p-neutral-100); /* window backdrop */
+  --surface-sunken:   var(--p-neutral-50);  /* wells, list backgrounds */
+  --surface-default:  var(--p-neutral-0);   /* panels, cards */
+  --surface-raised:   var(--p-neutral-0);   /* popovers, menus */
+  --surface-overlay:  var(--p-neutral-0);   /* dialogs */
+  --surface-inset:    var(--p-neutral-100); /* inputs, code wells */
+
+  --surface-hover:    oklch(0 0 0 / 0.04);
+  --surface-active:   oklch(0 0 0 / 0.07);
+  --surface-selected: var(--p-accent-100);
+
+  /* -- Content ------------------------------------------------------------- */
+  --content-primary:   var(--p-neutral-900);
+  --content-secondary: var(--p-neutral-600);
+  --content-tertiary:  var(--p-neutral-500);
+  --content-disabled:  var(--p-neutral-400);
+  --content-inverted:  var(--p-neutral-0);
+  --content-link:      var(--p-accent-600);
+
+  /* -- Borders ------------------------------------------------------------- */
+  --border-subtle:  var(--p-neutral-200);
+  --border-default: var(--p-neutral-300);
+  --border-strong:  var(--p-neutral-400);
+  --border-focus:   var(--p-accent-500);
+
+  /* -- Interactive: accent ------------------------------------------------- */
+  --accent-bg:         var(--p-accent-500);
+  --accent-bg-hover:   var(--p-accent-600);
+  --accent-bg-active:  var(--p-accent-700);
+  --accent-bg-subtle:  var(--p-accent-100);
+  --accent-content:    var(--p-neutral-0);
+  --accent-content-on-subtle: var(--p-accent-700);
+
+  /* -- Feedback ------------------------------------------------------------ */
+  --success-bg: var(--p-green-500);  --success-content: var(--p-green-700);  --success-subtle: var(--p-green-100);
+  --danger-bg:  var(--p-red-500);    --danger-content:  var(--p-red-700);    --danger-subtle:  var(--p-red-100);
+  --warning-bg: var(--p-amber-500);  --warning-content: var(--p-amber-700);  --warning-subtle: var(--p-amber-100);
+  --info-bg:    var(--p-accent-500); --info-content:    var(--p-accent-700); --info-subtle:    var(--p-accent-100);
+
+  /* -- Layout metrics ------------------------------------------------------ */
+  --layout-titlebar-height: 2.375rem; /* frameless drag region */
+  --layout-sidebar-width:   16rem;
+  --layout-sidebar-min:     11rem;
+  --layout-sidebar-max:     26rem;
+  --layout-statusbar-height: 1.625rem;
+  --layout-row-height:      1.75rem;  /* file/commit list row */
+  --layout-row-height-lg:   2.25rem;
+  --layout-section-header:  1.5rem;   /* sticky group header in a list */
+
+  /* -- shadcn/ui contract -------------------------------------------------- */
+  --radius: var(--p-radius-md);
+
+  --background:            var(--surface-default);
+  --foreground:            var(--content-primary);
+  --card:                  var(--surface-default);
+  --card-foreground:       var(--content-primary);
+  --popover:               var(--surface-raised);
+  --popover-foreground:    var(--content-primary);
+  --primary:               var(--accent-bg);
+  --primary-foreground:    var(--accent-content);
+  --secondary:             var(--p-neutral-100);
+  --secondary-foreground:  var(--content-primary);
+  --muted:                 var(--p-neutral-100);
+  --muted-foreground:      var(--content-secondary);
+  --accent:                var(--p-neutral-100);
+  --accent-foreground:     var(--content-primary);
+  --destructive:           var(--danger-bg);
+  --destructive-foreground: var(--content-inverted);
+  --border:                var(--border-subtle);
+  --input:                 var(--border-default);
+  --ring:                  var(--border-focus);
+
+  --sidebar:                    var(--surface-app);
+  --sidebar-foreground:         var(--content-primary);
+  --sidebar-primary:            var(--accent-bg);
+  --sidebar-primary-foreground: var(--accent-content);
+  --sidebar-accent:             var(--surface-hover);
+  --sidebar-accent-foreground:  var(--content-primary);
+  --sidebar-border:             var(--border-subtle);
+  --sidebar-ring:               var(--border-focus);
+
+  /* Chart slots — remapped to the branch-graph lanes in git.css */
+  --chart-1: var(--p-accent-500);
+  --chart-2: var(--p-green-500);
+  --chart-3: var(--p-amber-500);
+  --chart-4: var(--p-purple-500);
+  --chart-5: var(--p-cyan-500);
+}
+
+.dark {
+  --surface-app:      var(--p-neutral-1000);
+  --surface-sunken:   var(--p-neutral-1000);
+  --surface-default:  var(--p-neutral-950);
+  --surface-raised:   var(--p-neutral-900);
+  --surface-overlay:  var(--p-neutral-900);
+  --surface-inset:    var(--p-neutral-1000);
+
+  --surface-hover:    oklch(1 0 0 / 0.05);
+  --surface-active:   oklch(1 0 0 / 0.09);
+  --surface-selected: var(--p-accent-950);
+
+  --content-primary:   var(--p-neutral-100);
+  --content-secondary: var(--p-neutral-400);
+  --content-tertiary:  var(--p-neutral-500);
+  --content-disabled:  var(--p-neutral-600);
+  --content-inverted:  var(--p-neutral-950);
+  --content-link:      var(--p-accent-400);
+
+  --border-subtle:  var(--p-neutral-850);
+  --border-default: var(--p-neutral-800);
+  --border-strong:  var(--p-neutral-700);
+  --border-focus:   var(--p-accent-400);
+
+  --accent-bg:        var(--p-accent-500);
+  --accent-bg-hover:  var(--p-accent-400);
+  --accent-bg-active: var(--p-accent-300);
+  --accent-bg-subtle: var(--p-accent-950);
+  --accent-content:   var(--p-neutral-0);
+  --accent-content-on-subtle: var(--p-accent-300);
+
+  --success-content: var(--p-green-300);  --success-subtle: var(--p-green-950);
+  --danger-content:  var(--p-red-300);    --danger-subtle:  var(--p-red-950);
+  --warning-content: var(--p-amber-300);  --warning-subtle: var(--p-amber-950);
+  --info-content:    var(--p-accent-300); --info-subtle:    var(--p-accent-950);
+
+  --secondary:         var(--p-neutral-850);
+  --muted:             var(--p-neutral-850);
+  --accent:            var(--p-neutral-850);
+  --destructive-foreground: var(--p-neutral-0);
+}

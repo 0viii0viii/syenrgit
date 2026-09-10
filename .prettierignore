@@ -1,0 +1,9 @@
+out
+release
+node_modules
+pnpm-lock.yaml
+src/renderer/src/components/ui
+
+# Column alignment in the token files is deliberate — it makes a 200-line
+# palette scannable. Prettier would collapse it.
+src/renderer/src/styles/tokens

@@ -1,0 +1,284 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@import './tokens/primitives.css';
+@import './tokens/semantic.css';
+@import './tokens/git.css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* ---------------------------------------------------------------------------
+ * Tailwind theme bridge
+ *
+ * `inline` keeps the var() reference at the use site, so `.dark` overrides in
+ * the token layers apply without regenerating utilities. Components should use
+ * these utilities (bg-surface-default, text-content-secondary, ...) and never
+ * touch --p-* primitives.
+ * ------------------------------------------------------------------------ */
+@theme inline {
+  /* Surfaces */
+  --color-surface-app: var(--surface-app);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-default: var(--surface-default);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-surface-inset: var(--surface-inset);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+  --color-surface-selected: var(--surface-selected);
+
+  /* Content */
+  --color-content-primary: var(--content-primary);
+  --color-content-secondary: var(--content-secondary);
+  --color-content-tertiary: var(--content-tertiary);
+  --color-content-disabled: var(--content-disabled);
+  --color-content-inverted: var(--content-inverted);
+  --color-content-link: var(--content-link);
+
+  /* Borders */
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+  --color-border-focus: var(--border-focus);
+
+  /* Accent — the semantic roles. Distinct from shadcn's --color-accent, which
+     is a muted surface, so components reach the brand color through these. */
+  --color-accent-bg: var(--accent-bg);
+  --color-accent-bg-hover: var(--accent-bg-hover);
+  --color-accent-bg-active: var(--accent-bg-active);
+  --color-accent-bg-subtle: var(--accent-bg-subtle);
+  --color-accent-content: var(--accent-content);
+  --color-accent-content-on-subtle: var(--accent-content-on-subtle);
+
+  /* Feedback */
+  --color-success: var(--success-bg);
+  --color-success-content: var(--success-content);
+  --color-success-subtle: var(--success-subtle);
+  --color-danger: var(--danger-bg);
+  --color-danger-content: var(--danger-content);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-warning: var(--warning-bg);
+  --color-warning-content: var(--warning-content);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-info: var(--info-bg);
+  --color-info-content: var(--info-content);
+  --color-info-subtle: var(--info-subtle);
+
+  /* Git — diff */
+  --color-diff-add-bg: var(--diff-add-bg);
+  --color-diff-add-emphasis: var(--diff-add-bg-emphasis);
+  --color-diff-add-gutter: var(--diff-add-gutter);
+  --color-diff-add-content: var(--diff-add-content);
+  --color-diff-del-bg: var(--diff-del-bg);
+  --color-diff-del-emphasis: var(--diff-del-bg-emphasis);
+  --color-diff-del-gutter: var(--diff-del-gutter);
+  --color-diff-del-content: var(--diff-del-content);
+  --color-diff-hunk-bg: var(--diff-hunk-bg);
+  --color-diff-hunk-content: var(--diff-hunk-content);
+  --color-diff-linenum-content: var(--diff-linenum-content);
+
+  /* Git — conflict */
+  --color-conflict-base-bg: var(--conflict-base-bg);
+  --color-conflict-base-border: var(--conflict-base-border);
+  --color-conflict-ours-bg: var(--conflict-ours-bg);
+  --color-conflict-ours-border: var(--conflict-ours-border);
+  --color-conflict-ours-content: var(--conflict-ours-content);
+  --color-conflict-theirs-bg: var(--conflict-theirs-bg);
+  --color-conflict-theirs-border: var(--conflict-theirs-border);
+  --color-conflict-theirs-content: var(--conflict-theirs-content);
+  --color-conflict-unresolved-bg: var(--conflict-unresolved-bg);
+  --color-conflict-unresolved-border: var(--conflict-unresolved-border);
+
+  /* Git — file status */
+  --color-status-modified: var(--status-modified);
+  --color-status-added: var(--status-added);
+  --color-status-deleted: var(--status-deleted);
+  --color-status-renamed: var(--status-renamed);
+  --color-status-copied: var(--status-copied);
+  --color-status-untracked: var(--status-untracked);
+  --color-status-conflicted: var(--status-conflicted);
+  --color-status-ignored: var(--status-ignored);
+  --color-status-staged: var(--status-staged);
+  --color-status-unstaged: var(--status-unstaged);
+
+  /* Git — refs & sync */
+  --color-ref-head-bg: var(--ref-head-bg);
+  --color-ref-head-content: var(--ref-head-content);
+  --color-ref-local-bg: var(--ref-local-bg);
+  --color-ref-local-content: var(--ref-local-content);
+  --color-ref-remote-bg: var(--ref-remote-bg);
+  --color-ref-remote-content: var(--ref-remote-content);
+  --color-ref-tag-bg: var(--ref-tag-bg);
+  --color-ref-tag-content: var(--ref-tag-content);
+  --color-sync-ahead: var(--sync-ahead);
+  --color-sync-behind: var(--sync-behind);
+  --color-sync-diverged: var(--sync-diverged);
+
+  /* Git — graph lanes */
+  --color-graph-1: var(--graph-lane-1);
+  --color-graph-2: var(--graph-lane-2);
+  --color-graph-3: var(--graph-lane-3);
+  --color-graph-4: var(--graph-lane-4);
+  --color-graph-5: var(--graph-lane-5);
+  --color-graph-6: var(--graph-lane-6);
+  --color-graph-7: var(--graph-lane-7);
+  --color-graph-8: var(--graph-lane-8);
+
+  /* shadcn/ui contract */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* Radii */
+  --radius-xs: var(--p-radius-xs);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 6px);
+
+  /* Typography */
+  --font-sans: var(--p-font-sans);
+  --font-mono: var(--p-font-mono);
+  --text-2xs: var(--p-text-2xs);
+  --text-xs: var(--p-text-xs);
+  --text-sm: var(--p-text-sm);
+  --text-md: var(--p-text-md);
+  --text-base: var(--p-text-md);
+  --text-lg: var(--p-text-lg);
+  --text-xl: var(--p-text-xl);
+  --leading-tight: var(--p-leading-tight);
+  --leading-normal: var(--p-leading-normal);
+  --leading-code: var(--p-leading-code);
+
+  /* Elevation */
+  --shadow-sm: var(--p-shadow-sm);
+  --shadow-md: var(--p-shadow-md);
+  --shadow-lg: var(--p-shadow-lg);
+  --shadow-xl: var(--p-shadow-xl);
+
+  /* Motion */
+  --ease-out: var(--p-ease-out);
+  --ease-in-out: var(--p-ease-in-out);
+  --animate-duration-fast: var(--p-duration-fast);
+  --animate-duration-normal: var(--p-duration-normal);
+
+  /* Layout metrics */
+  --spacing-titlebar: var(--layout-titlebar-height);
+  --spacing-sidebar: var(--layout-sidebar-width);
+  --spacing-statusbar: var(--layout-statusbar-height);
+  --spacing-row: var(--layout-row-height);
+  --spacing-row-lg: var(--layout-row-height-lg);
+  --spacing-linenum: var(--diff-linenum-width);
+}
+
+@layer base {
+  * {
+    @apply border-border-subtle;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    @apply bg-surface-app font-sans text-xs text-content-primary antialiased;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* A desktop app is not a document: no rubber-band, no text drag-select. */
+    overscroll-behavior: none;
+    user-select: none;
+    cursor: default;
+  }
+
+  ::selection {
+    background: var(--surface-selected);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 1px;
+  }
+
+  /* Regions where selecting text is the point (diffs, commit messages, hashes) */
+  .selectable {
+    user-select: text;
+    cursor: auto;
+  }
+
+  /* Frameless-window drag regions */
+  .drag-region {
+    -webkit-app-region: drag;
+  }
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+}
+
+@layer components {
+  /* Thin overlay scrollbars — a file tree with 2000 entries should not have
+     a 15px chrome gutter eating the layout. */
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+  .scroll-thin::-webkit-scrollbar {
+    width: 0.5rem;
+    height: 0.5rem;
+  }
+  .scroll-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scroll-thin::-webkit-scrollbar-thumb {
+    background-color: var(--border-default);
+    border-radius: var(--p-radius-full);
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  .scroll-thin:hover::-webkit-scrollbar-thumb {
+    background-color: var(--border-strong);
+  }
+  .scroll-thin::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Panes that mirror another pane's scroll position: they still scroll, but
+     showing three vertical scrollbars for one logical scroll is noise. */
+  .scroll-hide-y {
+    scrollbar-width: none;
+  }
+  .scroll-hide-y::-webkit-scrollbar:vertical {
+    width: 0;
+  }
+}

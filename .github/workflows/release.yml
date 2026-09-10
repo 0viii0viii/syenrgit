@@ -1,0 +1,56 @@
+name: Release
+
+# Cutting a tag publishes the installers. electron-updater reads the release
+# assets — latest.yml on Windows, latest-mac.yml on macOS — to find updates,
+# so both must land in the same GitHub release.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (must already exist)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Do not cancel the other platform when one fails: a usable Windows
+      # installer is better than no installer at all.
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Package and publish
+        # The release is created as a draft so both platforms can attach their
+        # assets before anyone sees a half-populated release.
+        run: pnpm exec electron-builder --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Unsigned builds. Without this, electron-builder tries to find a
+          # signing identity on macOS and fails the job.
+          CSC_IDENTITY_AUTO_DISCOVERY: false

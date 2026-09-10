@@ -1,0 +1,61 @@
+appId: dev.syenrgit.app
+productName: syenrgit
+directories:
+  buildResources: build
+  output: release
+
+files:
+  - out/**
+  - package.json
+  - '!**/*.map'
+
+# The updater needs to know where releases live; electron-builder writes this
+# into app-update.yml at package time.
+publish:
+  provider: github
+  owner: 0viii0viii
+  repo: syenrgit
+
+win:
+  target:
+    # NSIS produces the installer; the updater consumes it plus latest.yml.
+    - target: nsis
+      arch: [x64]
+  artifactName: ${productName}-${version}-win-${arch}.${ext}
+
+nsis:
+  # Per-user install: no elevation prompt, and the updater can replace the app
+  # without asking for admin rights every time.
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: syenrgit
+  deleteAppDataOnUninstall: false
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    # The updater reads zips on macOS, not dmgs — without this, a Mac build
+    # publishes an installer nobody can auto-update from.
+    - target: zip
+      arch: [arm64, x64]
+  artifactName: ${productName}-${version}-mac-${arch}.${ext}
+  darkModeSupport: true
+  # A Git client shells out to `git` and reads arbitrary user directories;
+  # both need the hardened-runtime exceptions below once it is notarized.
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+
+dmg:
+  artifactName: ${productName}-${version}-mac-${arch}.${ext}
+
+linux:
+  target:
+    - AppImage
+  category: Development
+  artifactName: ${productName}-${version}-linux-${arch}.${ext}
