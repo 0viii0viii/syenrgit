@@ -1,4 +1,5 @@
 import { git, GitError } from './exec.js'
+import { samePath } from '@shared/paths.js'
 
 /**
  * A checkout of the repository. The first entry is always the main working
@@ -191,7 +192,7 @@ export async function removeWorktree(options: RemoveWorktreeOptions): Promise<st
   // prose. Its wording is not a contract — "is already checked out at" became
   // "is already used by worktree at" between 2.39 and 2.55 — and a message
   // this app branches on should not be one git is free to rephrase.
-  const entry = (await listWorktrees(cwd)).find((w) => w.path === path)
+  const entry = (await listWorktrees(cwd)).find((w) => samePath(w.path, path))
   if (entry?.isMain) throw new Error('The main working tree cannot be removed.')
 
   try {

@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/context-menu'
 import { Input } from '@/components/ui/input'
 import { matchesRef, refMatchScore } from '@/lib/fuzzy'
+import { samePath } from '@shared/paths'
 import { cn } from '@/lib/utils'
 import { relativeTime } from '@/lib/format'
 import { useListMetrics } from '@/lib/list-metrics'
@@ -347,8 +348,8 @@ function WorktreeRow({ worktree }: { worktree: Worktree }): React.JSX.Element {
   const tabs = useWorkspace((s) => s.tabs)
   const openTab = useWorkspace((s) => s.add)
 
-  const isOpen = tabs.some((t) => t.root === worktree.path)
-  const isCurrent = worktree.path === root
+  const isOpen = tabs.some((t) => samePath(t.root, worktree.path))
+  const isCurrent = root !== null && samePath(worktree.path, root)
   const name = worktree.path.slice(worktree.path.lastIndexOf('/') + 1)
 
   const row = (

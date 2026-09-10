@@ -12,6 +12,9 @@ function conflicted(): string {
   const cwd = mkdtempSync(join(tmpdir(), 'ts-'))
   const g = (...a: string[]) => execFileSync('git', a, { cwd, encoding: 'utf8' })
   g('init', '-q', '-b', 'main'); g('config', 'user.name', 'T'); g('config', 'user.email', 't@t.t')
+  // LF fixtures are compared byte-for-byte; Git for Windows would
+  // otherwise rewrite them to CRLF on checkout.
+  g('config', 'core.autocrlf', 'false')
   writeFileSync(join(cwd, 'delbyus.txt'), 'base\n')
   writeFileSync(join(cwd, 'delbythem.txt'), 'base\n')
   writeFileSync(join(cwd, 'both.txt'), 'base\n')

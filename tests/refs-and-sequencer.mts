@@ -19,6 +19,9 @@ function repo(): string {
   const cwd = mkdtempSync(join(tmpdir(), 'ref-'))
   const g = (...a: string[]) => execFileSync('git', a, { cwd, encoding: 'utf8' })
   g('init', '-q', '-b', 'main'); g('config', 'user.name', 'T'); g('config', 'user.email', 't@t.t')
+  // LF fixtures are compared byte-for-byte; Git for Windows would
+  // otherwise rewrite them to CRLF on checkout.
+  g('config', 'core.autocrlf', 'false')
   writeFileSync(join(cwd, 'f.txt'), 'l1\nl2\nl3\n'); g('add', '-A'); g('commit', '-qm', 'A')
   return cwd
 }

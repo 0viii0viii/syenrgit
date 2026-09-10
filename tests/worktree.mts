@@ -20,6 +20,9 @@ function setup(): { main: string; linked: string } {
   execFileSync('git', ['init', '-q', '-b', 'main', main])
   const g = (...a: string[]) => execFileSync('git', a, { cwd: main, encoding: 'utf8' })
   g('config', 'user.name', 'T'); g('config', 'user.email', 't@t.t')
+  // LF fixtures are compared byte-for-byte; Git for Windows would
+  // otherwise rewrite them to CRLF on checkout.
+  g('config', 'core.autocrlf', 'false')
   writeFileSync(join(main, 'f.txt'), 'l1\nl2\nl3\n')
   g('add', '-A'); g('commit', '-qm', 'base')
   g('branch', 'feature')

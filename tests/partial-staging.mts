@@ -21,6 +21,9 @@ const worktree = (cwd: string, path: string) => readFileSync(join(cwd, path), 'u
 function repo(base: string, edited: string, path = 'f.txt'): string {
   const cwd = mkdtempSync(join(tmpdir(), 'ps-'))
   g(cwd, 'init', '-q', '-b', 'main'); g(cwd, 'config', 'user.name', 'T'); g(cwd, 'config', 'user.email', 't@t.t')
+  // LF fixtures are compared byte-for-byte; Git for Windows would
+  // otherwise rewrite them to CRLF on checkout.
+  g(cwd, 'config', 'core.autocrlf', 'false')
   writeFileSync(join(cwd, path), base)
   g(cwd, 'add', '-A'); g(cwd, 'commit', '-qm', 'base')
   writeFileSync(join(cwd, path), edited)

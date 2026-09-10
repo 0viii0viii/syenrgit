@@ -89,10 +89,10 @@ export async function runInteractiveRebase(
   const todoPath = join(dir, 'todo')
   await writeFile(todoPath, renderTodo(entries), 'utf8')
 
-  const copy =
-    process.platform === 'win32'
-      ? `cmd /c copy /Y "${todoPath}"`
-      : `cp "${todoPath}"`
+  // Git runs this through its own shell — `sh` even on Windows, where Git for
+  // Windows ships one — so `cmd /c copy` is not reachable and backslashes
+  // would be read as escapes. Forward slashes work on both platforms.
+  const copy = `cp '${todoPath.replace(/\\/g, '/')}'`
 
   try {
     await git(['rebase', '--interactive', base], {
