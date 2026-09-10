@@ -3,7 +3,7 @@ import { join, sep } from 'node:path'
 import type { BrowserWindow } from 'electron'
 import { IPC_EVENT } from '@shared/ipc.js'
 import type { ChangeScope } from '@shared/ipc.js'
-import { gitDir } from './git/repo.js'
+import { gitCommonDir, gitDir } from './git/repo.js'
 
 /**
  * Paths whose churn must never trigger a status refresh. `.git/index.lock` in
@@ -89,10 +89,16 @@ export async function startWatching(
   attach(root, false)
 
   try {
+    // Per-worktree state: HEAD, the index, in-progress operation markers.
     const dir = await gitDir(root)
-    // Watch .git itself but not its object database.
-    attach(join(dir, 'refs'), true)
     attach(dir, true)
+
+    // Branches and tags are shared between worktrees and live in the common
+    // directory. In a linked worktree that is somewhere else entirely, so
+    // watching only `dir` would miss every commit made from a sibling.
+    const common = await gitCommonDir(root)
+    attach(join(common, 'refs'), true)
+    if (common !== dir) attach(common, true)
   } catch {
     /* not a repo */
   }

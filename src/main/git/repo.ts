@@ -1,5 +1,5 @@
-import { access, readFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { access, readFile, realpath } from 'node:fs/promises'
+import { isAbsolute, join, resolve } from 'node:path'
 import { git, gitLine, GitError } from './exec.js'
 import type { RepoOperation } from '@shared/git.js'
 
@@ -23,9 +23,33 @@ export async function discoverRepo(startPath: string): Promise<string | null> {
   }
 }
 
-/** Absolute path to the .git directory (handles worktrees and submodules). */
+/**
+ * Absolute path to this working tree's git directory.
+ *
+ * In a linked worktree this is `.git/worktrees/<name>`, which holds the state
+ * that is *per worktree*: HEAD, the index, and the in-progress operation
+ * markers.
+ */
 export async function gitDir(cwd: string): Promise<string> {
   return gitLine(['rev-parse', '--absolute-git-dir'], { cwd })
+}
+
+/**
+ * Absolute path to the git directory shared by every worktree.
+ *
+ * Branches, tags and the object database live here, not in the per-worktree
+ * directory — so anything watching for ref changes has to look here or it
+ * will miss commits made from a sibling worktree. In an ordinary repository
+ * this is the same path as `gitDir`.
+ */
+export async function gitCommonDir(cwd: string): Promise<string> {
+  const dir = await gitLine(['rev-parse', '--git-common-dir'], { cwd })
+  // `--git-common-dir` answers relatively when run from the repository root,
+  // and `--absolute-git-dir` resolves symlinks. Both are normalised the same
+  // way so a caller can compare them — the watcher relies on that to avoid
+  // attaching the same directory twice in an ordinary repository.
+  const absolute = isAbsolute(dir) ? dir : resolve(cwd, dir)
+  return realpath(absolute).catch(() => absolute)
 }
 
 /**

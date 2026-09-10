@@ -94,6 +94,21 @@ History walks `--branches --tags --remotes HEAD`, deliberately not `--all`:
 `--all` includes `refs/stash`, and a stash entry is a merge commit, so stashes
 would appear in the graph as extra commits with a merge node.
 
+### Linked worktrees
+
+The app works when opened on a `git worktree` checkout, but the watcher has to
+look in two places. A linked worktree's git directory
+(`.git/worktrees/<name>`) holds only the state that is *per worktree* — HEAD,
+the index, in-progress operation markers. Branches and tags live in the
+directory shared by every worktree, so watching only the first one misses every
+commit made from a sibling.
+
+`gitCommonDir()` normalises through `realpath` to match `--absolute-git-dir`,
+which resolves symlinks; without that the two disagree by `/var` vs
+`/private/var` on macOS and an ordinary repository gets watched twice.
+
+Creating and removing worktrees from the UI is not implemented.
+
 ### Refresh scoping
 
 The watcher tags each debounced change as `worktree` or `git`. A worktree write
@@ -272,7 +287,7 @@ Branch deletion offers the unforced and forced forms as separate entries rather
 than one with a confirmation: the unforced delete refuses to drop commits that
 exist nowhere else, and that refusal is the whole safety of the operation.
 
-Still missing: submodules, worktrees, bisect, and reflog browsing.
+Still missing: submodules, worktree management, bisect, and reflog browsing.
 
 ### The merge editor
 
