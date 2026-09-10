@@ -28,14 +28,17 @@ export function TitleBar(): React.JSX.Element | null {
   const busy = useActions((s) => s.busy)
   const remotes = useActions((s) => s.remotes)
   const loadRemotes = useActions((s) => s.loadRemotes)
+  const loadWorktrees = useActions((s) => s.loadWorktrees)
   const fetch = useActions((s) => s.fetch)
   const pull = useActions((s) => s.pull)
   const push = useActions((s) => s.push)
   const pushTags = useActions((s) => s.pushTags)
 
   useEffect(() => {
-    if (root) void loadRemotes(root)
-  }, [root, loadRemotes])
+    if (!root) return
+    void loadRemotes(root)
+    void loadWorktrees(root)
+  }, [root, loadRemotes, loadWorktrees])
 
   if (!root) return null
 

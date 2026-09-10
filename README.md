@@ -107,7 +107,23 @@ commit made from a sibling.
 which resolves symlinks; without that the two disagree by `/var` vs
 `/private/var` on macOS and an ordinary repository gets watched twice.
 
-Creating and removing worktrees from the UI is not implemented.
+A WORKTREES section appears in the ref tree once there is more than the main
+working tree. Clicking a worktree opens it as a tab — which is the point of
+having them: two branches open side by side, each with its own files, index
+and in-progress operation.
+
+Create one from a branch's context menu or the section's `+`. Two gotchas the
+UI handles rather than relaying:
+
+- **A branch can only be checked out in one worktree at a time.** The dialog
+  says which directory already holds it, before you try.
+- **`git worktree add` only checks out a branch when given its short name.**
+  Handed a full ref like `refs/heads/x` it treats the argument as a commit-ish
+  and silently detaches HEAD — the worktree works, but it is not on the branch
+  you picked.
+
+Removing is refused for the main working tree, for the worktree currently open
+in a tab, and — unless forced — for one holding uncommitted work.
 
 ### Refresh scoping
 

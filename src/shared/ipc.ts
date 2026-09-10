@@ -69,7 +69,13 @@ export const IPC = {
   patchStage: 'patch:stage',
   patchUnstage: 'patch:unstage',
   patchDiscard: 'patch:discard',
-  discardFile: 'patch:discardFile'
+  discardFile: 'patch:discardFile',
+  worktreeList: 'worktree:list',
+  worktreeAdd: 'worktree:add',
+  worktreeRemove: 'worktree:remove',
+  worktreePrune: 'worktree:prune',
+  worktreeLock: 'worktree:lock',
+  worktreeUnlock: 'worktree:unlock'
 } as const
 
 /** Pushed from main to the renderer; not request/response. */
@@ -349,6 +355,36 @@ export interface PatchRequest {
   selection: PatchSelection
 }
 
+export interface Worktree {
+  path: string
+  /** Full ref name of the checked-out branch, or null when detached. */
+  branch: string | null
+  /** Short branch name, or the abbreviated hash when detached. */
+  label: string
+  head: string
+  detached: boolean
+  /** The main working tree cannot be removed. */
+  isMain: boolean
+  locked: { reason: string } | null
+  prunable: boolean
+}
+
+export interface AddWorktreeRequest {
+  cwd: string
+  path: string
+  /** Existing branch to check out, or the start point for a new one. */
+  ref?: string
+  /** Create this branch instead of checking out `ref`. */
+  newBranch?: string
+  detach?: boolean
+}
+
+export interface RemoveWorktreeRequest {
+  cwd: string
+  path: string
+  force?: boolean
+}
+
 export interface CommitDiffRequest {
   cwd: string
   hash: string
@@ -418,6 +454,12 @@ export interface RendererApi {
   unstagePartial(req: PatchRequest): Promise<void>
   discardPartial(req: PatchRequest): Promise<void>
   discardFile(cwd: string, path: string): Promise<void>
+  worktrees(cwd: string): Promise<Worktree[]>
+  addWorktree(req: AddWorktreeRequest): Promise<string>
+  removeWorktree(req: RemoveWorktreeRequest): Promise<string>
+  pruneWorktrees(cwd: string): Promise<string>
+  lockWorktree(cwd: string, path: string, reason: string): Promise<string>
+  unlockWorktree(cwd: string, path: string): Promise<string>
   /** Subscribe to updater progress. Returns an unsubscribe function. */
   onUpdateChanged(listener: (state: UpdateState) => void): () => void
 }

@@ -10,7 +10,8 @@ import type {
   SequencerOutcome,
   SequencerStep,
   StashApplyOutcome,
-  TodoEntry
+  TodoEntry,
+  Worktree
 } from '@shared/ipc'
 import { useHistory } from './history'
 import { useRepo } from './repo'
@@ -23,6 +24,8 @@ interface ActionState {
   notice: string | null
   /** Remotes of the active repository, for the push/fetch targets. */
   remotes: RemoteInfo[]
+  /** Every checkout of this repository, including the main working tree. */
+  worktrees: Worktree[]
 
   clear: () => void
   checkout: (root: string, branch: string) => Promise<boolean>
@@ -55,6 +58,19 @@ interface ActionState {
   deleteTag: (root: string, name: string) => Promise<boolean>
   deleteBranch: (root: string, name: string, force: boolean) => Promise<boolean>
   runTodo: (root: string, base: string, entries: TodoEntry[]) => Promise<RebaseOutcome | null>
+  loadWorktrees: (root: string) => Promise<void>
+  addWorktree: (root: string, options: NewWorktreeArgs) => Promise<boolean>
+  removeWorktree: (root: string, path: string, force: boolean) => Promise<boolean>
+  pruneWorktrees: (root: string) => Promise<boolean>
+  setWorktreeLock: (root: string, path: string, locked: boolean) => Promise<boolean>
+}
+
+export interface NewWorktreeArgs {
+  path: string
+  /** Existing branch to check out, or the start point for a new one. */
+  ref?: string
+  /** Create this branch instead of checking out `ref`. */
+  newBranch?: string
 }
 
 export interface NewTagArgs {
@@ -91,11 +107,12 @@ async function reload(root: string): Promise<void> {
   await Promise.all([useRepo.getState().refresh(), useHistory.getState().load(root)])
 }
 
-export const useActions = create<ActionState>((set) => ({
+export const useActions = create<ActionState>((set, get) => ({
   busy: null,
   error: null,
   notice: null,
   remotes: [],
+  worktrees: [],
 
   clear: () => set({ error: null, notice: null }),
 
@@ -339,6 +356,78 @@ export const useActions = create<ActionState>((set) => ({
             ? `Created ${options.name}`
             : `Created and switched to ${options.name}`
       })
+      return true
+    } catch (err) {
+      set({ error: describeError(err) })
+      return false
+    } finally {
+      set({ busy: null })
+    }
+  },
+
+  loadWorktrees: async (root) => {
+    try {
+      set({ worktrees: await window.api.worktrees(root) })
+    } catch {
+      // A repository can be opened before git is reachable; an empty list is
+      // the honest answer and the section simply does not render.
+      set({ worktrees: [] })
+    }
+  },
+
+  addWorktree: async (root, options) => {
+    set({ busy: 'addWorktree', error: null, notice: null })
+    try {
+      const message = await window.api.addWorktree({ cwd: root, ...options })
+      await get().loadWorktrees(root)
+      set({ notice: message })
+      return true
+    } catch (err) {
+      set({ error: describeError(err) })
+      return false
+    } finally {
+      set({ busy: null })
+    }
+  },
+
+  removeWorktree: async (root, path, force) => {
+    set({ busy: 'removeWorktree', error: null, notice: null })
+    try {
+      const message = await window.api.removeWorktree({ cwd: root, path, force })
+      await get().loadWorktrees(root)
+      set({ notice: message })
+      return true
+    } catch (err) {
+      set({ error: describeError(err) })
+      return false
+    } finally {
+      set({ busy: null })
+    }
+  },
+
+  pruneWorktrees: async (root) => {
+    set({ busy: 'pruneWorktrees', error: null, notice: null })
+    try {
+      const message = await window.api.pruneWorktrees(root)
+      await get().loadWorktrees(root)
+      set({ notice: message })
+      return true
+    } catch (err) {
+      set({ error: describeError(err) })
+      return false
+    } finally {
+      set({ busy: null })
+    }
+  },
+
+  setWorktreeLock: async (root, path, locked) => {
+    set({ busy: 'lockWorktree', error: null, notice: null })
+    try {
+      const message = locked
+        ? await window.api.lockWorktree(root, path, '')
+        : await window.api.unlockWorktree(root, path)
+      await get().loadWorktrees(root)
+      set({ notice: message })
       return true
     } catch (err) {
       set({ error: describeError(err) })

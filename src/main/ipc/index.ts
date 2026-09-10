@@ -10,8 +10,10 @@ import type {
   PushRequest,
   PushTagsRequest,
   CreateTagRequest,
+  AddWorktreeRequest,
   PatchRequest,
   PatchSelection,
+  RemoveWorktreeRequest,
   DeleteBranchRequest,
   RebaseRequest,
   RebaseStep,
@@ -69,6 +71,14 @@ import {
 } from '../git/conflict.js'
 import { startWatching, stopWatching } from '../watcher.js'
 import { checkForUpdatesNow, currentUpdateState, installUpdate } from '../updater.js'
+import {
+  addWorktree,
+  listWorktrees,
+  lockWorktree,
+  pruneWorktrees,
+  removeWorktree,
+  unlockWorktree
+} from '../git/worktree.js'
 import {
   discardFile,
   discardPartial,
@@ -148,6 +158,29 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
     discardPartial({ cwd: req.cwd, path: req.path, selection: toSelection(req.selection) })
   )
   handle(IPC.discardFile, (cwd: string, path: string) => discardFile(cwd, path))
+
+  handle(IPC.worktreeList, (cwd: string) => listWorktrees(cwd))
+  handle(IPC.worktreeAdd, (req: AddWorktreeRequest) =>
+    addWorktree({
+      cwd: req.cwd,
+      path: req.path,
+      ...(req.ref !== undefined ? { ref: req.ref } : {}),
+      ...(req.newBranch !== undefined ? { newBranch: req.newBranch } : {}),
+      ...(req.detach !== undefined ? { detach: req.detach } : {})
+    })
+  )
+  handle(IPC.worktreeRemove, (req: RemoveWorktreeRequest) =>
+    removeWorktree({
+      cwd: req.cwd,
+      path: req.path,
+      ...(req.force !== undefined ? { force: req.force } : {})
+    })
+  )
+  handle(IPC.worktreePrune, (cwd: string) => pruneWorktrees(cwd))
+  handle(IPC.worktreeLock, (cwd: string, path: string, reason: string) =>
+    lockWorktree(cwd, path, reason)
+  )
+  handle(IPC.worktreeUnlock, (cwd: string, path: string) => unlockWorktree(cwd, path))
 
   handle(IPC.updateState, async () => currentUpdateState())
   handle(IPC.updateCheck, async () => {

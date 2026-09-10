@@ -1,6 +1,15 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { defaultRangeExtractor, useVirtualizer, type Range } from '@tanstack/react-virtual'
-import { Archive, ChevronRight, Cloud, GitBranch, Plus, Tag as TagIcon } from 'lucide-react'
+import {
+  Archive,
+  ChevronRight,
+  Cloud,
+  FolderTree,
+  GitBranch,
+  Lock,
+  Plus,
+  Tag as TagIcon
+} from 'lucide-react'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -12,10 +21,13 @@ import { cn } from '@/lib/utils'
 import { relativeTime } from '@/lib/format'
 import { useListMetrics } from '@/lib/list-metrics'
 import { NewBranchDialog } from '@/features/branches/NewBranchDialog'
+import { NewWorktreeDialog } from '@/features/branches/NewWorktreeDialog'
 import { useActions } from '@/stores/actions'
 import { useHistory } from '@/stores/history'
 import { useRepo } from '@/stores/repo'
+import { useWorkspace } from '@/stores/workspace'
 import type { BranchRef, RefList, StashEntry, TagRef } from '@shared/git'
+import type { Worktree } from '@shared/ipc'
 
 type Icon = React.ComponentType<{ className?: string }>
 
@@ -24,6 +36,7 @@ type Row =
   | { kind: 'branch'; branch: BranchRef }
   | { kind: 'tag'; tag: TagRef }
   | { kind: 'stash'; stash: StashEntry }
+  | { kind: 'worktree'; worktree: Worktree }
 
 const OVERSCAN = 12
 
@@ -47,7 +60,11 @@ function groupRemotes(remotes: BranchRef[]): [string, BranchRef[]][] {
  * windowed like every other list in the app. Collapsed sections contribute
  * only their header, which is what keeps expanding a large remote cheap.
  */
-function buildRows(refs: RefList, expanded: ReadonlySet<string>): Row[] {
+function buildRows(
+  refs: RefList,
+  worktrees: Worktree[],
+  expanded: ReadonlySet<string>
+): Row[] {
   const rows: Row[] = []
 
   const section = (id: string, title: string, icon: Icon, count: number): boolean => {
@@ -72,6 +89,12 @@ function buildRows(refs: RefList, expanded: ReadonlySet<string>): Row[] {
 
   if (section('stashes', 'Stashes', Archive, refs.stashes.length)) {
     for (const stash of refs.stashes) rows.push({ kind: 'stash', stash })
+  }
+
+  // Only worth a section once there is more than the main working tree, which
+  // every repository has.
+  if (worktrees.length > 1 && section('worktrees', 'Worktrees', FolderTree, worktrees.length)) {
+    for (const worktree of worktrees) rows.push({ kind: 'worktree', worktree })
   }
 
   return rows
@@ -115,6 +138,7 @@ function useRefFilter(refName: string): {
 function BranchRow({ branch }: { branch: BranchRef }): React.JSX.Element {
   const { filtered, onClick } = useRefFilter(branch.refName)
   const [newBranchOpen, setNewBranchOpen] = useState(false)
+  const [newWorktreeOpen, setNewWorktreeOpen] = useState(false)
   const root = useRepo((s) => s.root)
   const status = useRepo((s) => s.status)
   const busy = useActions((s) => s.busy)
@@ -206,6 +230,9 @@ function BranchRow({ branch }: { branch: BranchRef }): React.JSX.Element {
         <ContextMenuItem disabled={busy !== null} onSelect={() => setNewBranchOpen(true)}>
           New branch from {branch.name}
         </ContextMenuItem>
+        <ContextMenuItem disabled={busy !== null} onSelect={() => setNewWorktreeOpen(true)}>
+          New worktree for {branch.name}&hellip;
+        </ContextMenuItem>
         <ContextMenuSeparator />
         {/* Two entries rather than one with a confirm: the unforced delete
             refuses to drop commits that exist nowhere else, and that refusal
@@ -230,6 +257,11 @@ function BranchRow({ branch }: { branch: BranchRef }): React.JSX.Element {
         open={newBranchOpen}
         onOpenChange={setNewBranchOpen}
         startPoint={branch.refName}
+      />
+      <NewWorktreeDialog
+        open={newWorktreeOpen}
+        onOpenChange={setNewWorktreeOpen}
+        startRef={branch.refName}
       />
     </ContextMenu>
   )
@@ -278,6 +310,102 @@ function SimpleRow({
     <TagMenu name={refName.slice('refs/tags/'.length)}>{row}</TagMenu>
   ) : (
     row
+  )
+}
+
+/**
+ * A worktree row. Clicking one opens it as a tab, which is the whole point of
+ * having worktrees: two branches open side by side.
+ */
+function WorktreeRow({ worktree }: { worktree: Worktree }): React.JSX.Element {
+  const root = useRepo((s) => s.root)
+  const busy = useActions((s) => s.busy)
+  const removeWorktree = useActions((s) => s.removeWorktree)
+  const setWorktreeLock = useActions((s) => s.setWorktreeLock)
+  const pruneWorktrees = useActions((s) => s.pruneWorktrees)
+  const tabs = useWorkspace((s) => s.tabs)
+  const openTab = useWorkspace((s) => s.add)
+
+  const isOpen = tabs.some((t) => t.root === worktree.path)
+  const isCurrent = worktree.path === root
+  const name = worktree.path.slice(worktree.path.lastIndexOf('/') + 1)
+
+  const row = (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => void openTab(worktree.path)}
+      title={`${worktree.path}\n${worktree.detached ? 'detached at' : 'on'} ${worktree.label}`}
+      className={cn(
+        'flex h-full cursor-default items-center gap-1.5 pl-6 pr-2 text-xs',
+        'hover:bg-surface-hover',
+        isCurrent && 'bg-surface-selected hover:bg-surface-selected',
+        worktree.prunable && 'opacity-50'
+      )}
+    >
+      <span className={cn('min-w-0 flex-1 truncate', isCurrent && 'font-semibold')}>{name}</span>
+
+      {worktree.locked && <Lock className="size-2.5 shrink-0 text-content-tertiary" />}
+      <span
+        className={cn(
+          'shrink-0 truncate text-2xs',
+          worktree.detached ? 'font-mono text-content-tertiary' : 'text-ref-local-content'
+        )}
+      >
+        {worktree.label}
+      </span>
+      {isOpen && !isCurrent && (
+        <span className="size-1.5 shrink-0 rounded-full bg-accent-bg" title="Open in a tab" />
+      )}
+    </div>
+  )
+
+  if (!root) return row
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
+      <ContextMenuContent className="w-60">
+        <ContextMenuItem disabled={isCurrent} onSelect={() => void openTab(worktree.path)}>
+          {isCurrent ? 'This is the open worktree' : `Open ${name} in a tab`}
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          disabled={busy !== null || worktree.isMain}
+          onSelect={() => void setWorktreeLock(root, worktree.path, worktree.locked === null)}
+        >
+          {worktree.locked ? 'Unlock' : 'Lock — keep prune from removing it'}
+        </ContextMenuItem>
+        {worktree.prunable && (
+          <ContextMenuItem disabled={busy !== null} onSelect={() => void pruneWorktrees(root)}>
+            Prune missing worktrees
+          </ContextMenuItem>
+        )}
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          variant="destructive"
+          disabled={busy !== null || worktree.isMain || isCurrent}
+          onSelect={() => void removeWorktree(root, worktree.path, false)}
+        >
+          {worktree.isMain
+            ? 'The main working tree cannot be removed'
+            : isCurrent
+              ? 'Close this tab before removing it'
+              : `Remove ${name}`}
+        </ContextMenuItem>
+        <ContextMenuItem
+          variant="destructive"
+          disabled={busy !== null || worktree.isMain || isCurrent}
+          onSelect={() => {
+            if (window.confirm(`Remove ${name} and discard its uncommitted changes?`)) {
+              void removeWorktree(root, worktree.path, true)
+            }
+          }}
+        >
+          Remove, discarding uncommitted changes
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
 
@@ -373,13 +501,15 @@ export function RefTree(): React.JSX.Element {
   const refs = useHistory((s) => s.refs)
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(DEFAULT_EXPANDED)
   const [newBranchOpen, setNewBranchOpen] = useState(false)
+  const [newWorktreeOpen, setNewWorktreeOpen] = useState(false)
 
   const metrics = useListMetrics()
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  const worktrees = useActions((s) => s.worktrees)
   const rows = useMemo(
-    () => (refs ? buildRows(refs, expanded) : []),
-    [refs, expanded]
+    () => (refs ? buildRows(refs, worktrees, expanded) : []),
+    [refs, worktrees, expanded]
   )
   const headerIndexes = useMemo(
     () => rows.reduce<number[]>((acc, r, i) => (r.kind === 'header' ? [...acc, i] : acc), []),
@@ -480,11 +610,24 @@ export function RefTree(): React.JSX.Element {
                       <Plus className="size-3" />
                     </button>
                   )}
+                  {row.id === 'worktrees' && (
+                    <button
+                      type="button"
+                      aria-label="New worktree"
+                      title="New worktree"
+                      onClick={() => setNewWorktreeOpen(true)}
+                      className="flex size-4 shrink-0 items-center justify-center rounded-xs text-content-tertiary opacity-0 hover:bg-surface-active hover:text-content-primary group-hover:opacity-100 focus-visible:opacity-100"
+                    >
+                      <Plus className="size-3" />
+                    </button>
+                  )}
                 </div>
               ) : row.kind === 'branch' ? (
                 <BranchRow branch={row.branch} />
               ) : row.kind === 'tag' ? (
                 <SimpleRow label={row.tag.name} date={row.tag.date} refName={row.tag.refName} />
+              ) : row.kind === 'worktree' ? (
+                <WorktreeRow worktree={row.worktree} />
               ) : (
                 <StashRow stash={row.stash} />
               )}
@@ -494,6 +637,7 @@ export function RefTree(): React.JSX.Element {
       </div>
 
       <NewBranchDialog open={newBranchOpen} onOpenChange={setNewBranchOpen} />
+      <NewWorktreeDialog open={newWorktreeOpen} onOpenChange={setNewWorktreeOpen} />
     </div>
   )
 }

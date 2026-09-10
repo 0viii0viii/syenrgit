@@ -85,6 +85,102 @@ ok('a sibling worktree\'s commit is visible from here',
   after.local.find((b) => b.name === 'main')?.subject === 'from the main worktree',
   after.local.find((b) => b.name === 'main')?.subject ?? 'none')
 
+// --- worktree management ----------------------------------------------------
+{
+  const { listWorktrees, addWorktree, removeWorktree, parseWorktrees,
+          lockWorktree, unlockWorktree, pruneWorktrees } =
+    await import('@main/git/worktree.js')
+
+  const list = await listWorktrees(main)
+  ok('list finds both worktrees', list.length === 2, String(list.length))
+  ok('  the main one is flagged and comes first', list[0]?.isMain === true)
+  ok('  the linked one is not', list[1]?.isMain === false)
+  ok('  branches are short-named', list.map(w => w.label).sort().join(',') === 'feature,main',
+    list.map(w => w.label).join(','))
+
+  // Adding a worktree for a branch already checked out must explain itself.
+  let refused = ''
+  try {
+    await addWorktree({ cwd: main, path: join(main, '..', 'dup'), ref: 'feature' })
+  } catch (e) { refused = String(e) }
+  ok('adding an already-checked-out branch is explained',
+    /only be in one worktree/.test(refused), refused.slice(0, 80))
+
+  // A full ref name must still land ON the branch, not detach. `main` and
+  // `feature` are both taken, so this needs a branch nothing has checked out.
+  g(main, 'branch', 'spare')
+  const onBranch = join(main, '..', 'on-branch')
+  await addWorktree({ cwd: main, path: onBranch, ref: 'refs/heads/spare' })
+  const branchy = (await listWorktrees(main)).find(w => w.path.endsWith('on-branch'))
+  ok('a full ref name checks out the branch rather than detaching',
+    branchy?.detached === false && branchy.label === 'spare',
+    `detached=${branchy?.detached} label=${branchy?.label}`)
+  await removeWorktree({ cwd: main, path: onBranch, force: true })
+
+  // Creating a branch and its worktree in one step.
+  const third = join(main, '..', 'third')
+  await addWorktree({ cwd: main, path: third, newBranch: 'from-worktree' })
+  ok('add -b creates the branch and the worktree',
+    (await listWorktrees(main)).length === 3)
+  ok('  the branch exists', g(main, 'branch', '--list', 'from-worktree') !== '')
+
+  // Detached.
+  const detached = join(main, '..', 'detached')
+  await addWorktree({ cwd: main, path: detached, ref: 'HEAD', detach: true })
+  const withDetached = await listWorktrees(main)
+  const d = withDetached.find(w => w.path.endsWith('detached'))
+  ok('a detached worktree reports no branch', d?.detached === true && d.branch === null)
+  ok('  and labels itself with the short hash', d?.label.length === 7, d?.label)
+
+  // Removing a clean worktree works; a dirty one is refused.
+  await removeWorktree({ cwd: main, path: detached })
+  ok('removing a clean worktree works',
+    !(await listWorktrees(main)).some(w => w.path.endsWith('detached')))
+
+  writeFileSync(join(third, 'dirty.txt'), 'uncommitted\n')
+  let dirtyRefusal = ''
+  try { await removeWorktree({ cwd: main, path: third }) } catch (e) { dirtyRefusal = String(e) }
+  ok('removing a dirty worktree is refused with a reason',
+    /uncommitted changes/.test(dirtyRefusal), dirtyRefusal.slice(0, 70))
+  await removeWorktree({ cwd: main, path: third, force: true })
+  ok('  and force removes it', !(await listWorktrees(main)).some(w => w.path.endsWith('third')))
+
+  // The main worktree can never be removed.
+  let mainRefusal = ''
+  try { await removeWorktree({ cwd: main, path: main }) } catch (e) { mainRefusal = String(e) }
+  ok('the main working tree cannot be removed',
+    /main working tree/.test(mainRefusal), mainRefusal.slice(0, 60))
+
+  // Lock / unlock.
+  await lockWorktree(main, linked, 'on a usb drive')
+  const lockedList = await listWorktrees(main)
+  ok('lock is reported with its reason',
+    lockedList.find(w => !w.isMain)?.locked?.reason === 'on a usb drive',
+    JSON.stringify(lockedList.find(w => !w.isMain)?.locked))
+  await unlockWorktree(main, linked)
+  ok('  and unlock clears it',
+    (await listWorktrees(main)).find(w => !w.isMain)?.locked === null)
+
+  // Prune notices a directory deleted behind git's back.
+  const doomed = join(main, '..', 'doomed')
+  await addWorktree({ cwd: main, path: doomed, newBranch: 'doomed-branch' })
+  rmSync(doomed, { recursive: true, force: true })
+  ok('a vanished worktree is marked prunable',
+    (await listWorktrees(main)).find(w => w.path.endsWith('doomed'))?.prunable === true)
+  await pruneWorktrees(main)
+  ok('  and prune forgets it',
+    !(await listWorktrees(main)).some(w => w.path.endsWith('doomed')))
+
+  // Parser edge cases, without touching a repo.
+  const parsed = parseWorktrees(
+    'worktree /a\nHEAD abc123\nbranch refs/heads/main\n\n' +
+    'worktree /b\nHEAD def456\ndetached\nlocked\n\n'
+  )
+  ok('parser handles a locked entry with no reason',
+    parsed[1]?.locked?.reason === '', JSON.stringify(parsed[1]?.locked))
+  ok('  and a trailing blank line yields no phantom entry', parsed.length === 2, String(parsed.length))
+}
+
 rmSync(join(main, '..'), { recursive: true, force: true })
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
