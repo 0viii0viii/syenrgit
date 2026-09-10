@@ -35,6 +35,7 @@ export function CommitList(): React.JSX.Element {
   const filter = useHistory((s) => s.filter)
   const exclusive = useHistory((s) => s.exclusive)
   const searching = useHistory((s) => s.searching)
+  const contiguous = useHistory((s) => s.contiguous)
 
   const status = useRepo((s) => s.status)
   const busy = useActions((s) => s.busy)
@@ -106,7 +107,11 @@ export function CommitList(): React.JSX.Element {
     )
   }
 
-  const graphPx = Math.max(width, 1) * metrics.lane
+  // A search result is a set of matching commits, not contiguous history, so
+  // its lanes would connect commits that are not actually parent and child.
+  // The column is dropped rather than drawn wrong.
+  const showGraph = contiguous
+  const graphPx = showGraph ? Math.max(width, 1) * metrics.lane : 0
   const first = items[0]?.index ?? 0
   const last = items[items.length - 1]?.index ?? 0
 
@@ -128,7 +133,9 @@ export function CommitList(): React.JSX.Element {
       }}
     >
       <div className="relative" style={{ height: virtualizer.getTotalSize() }}>
-        <CommitGraph rows={graph} width={width} metrics={metrics} from={first} to={last} />
+        {showGraph && (
+          <CommitGraph rows={graph} width={width} metrics={metrics} from={first} to={last} />
+        )}
 
         {items.map((item) => {
           const commit = commits[item.index]

@@ -111,6 +111,74 @@ const g = (...a: string[]) => execFileSync('git', a, { cwd, encoding: 'utf8' }).
     String(found.length))
 }
 
+// --- an unborn repository has no history, which is not an error ------------
+{
+  const fresh = mkdtempSync(join(tmpdir(), 'unborn-'))
+  execFileSync('git', ['init', '-q', '-b', 'main', fresh])
+
+  ok('a repository with no commits returns an empty log',
+    (await getLog({ cwd: fresh })).length === 0)
+  ok('  and an empty search result', (await getLog({ cwd: fresh, search: { message: 'x' } })).length === 0)
+  ok('  and an empty hash lookup', (await getLog({ cwd: fresh, search: { hash: 'abc1234' } })).length === 0)
+
+  // The first commit must appear immediately after it is made.
+  writeFileSync(join(fresh, 'f.txt'), 'first\n')
+  execFileSync('git', ['add', '-A'], { cwd: fresh })
+  execFileSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@t.t',
+    'commit', '-qm', 'the very first commit'], { cwd: fresh })
+  ok('the first commit shows up', (await getLog({ cwd: fresh })).length === 1)
+  rmSync(fresh, { recursive: true, force: true })
+}
+
+// --- queries that could be mistaken for options or patterns -----------------
+{
+  for (const [label, query] of [
+    ['a leading dash', '--not-an-option'],
+    ['a short flag', '-x'],
+    ['quotes', '"quotes"'],
+    ['a dollar sign', '$dollar'],
+    ['a glob', '*'],
+    ['a range', '..']
+  ] as const) {
+    let threw = false
+    try { await getLog({ cwd, search: { message: query } }) } catch { threw = true }
+    ok(`${label} is searched, not interpreted`, !threw, query)
+  }
+}
+
+// --- a search result must not claim to be a graph ---------------------------
+{
+  const { buildGraph, graphWidth, isContiguousHistory } = await import('@main/git/graph.js')
+
+  const all = await getLog({ cwd })
+  ok('ordinary history is contiguous', isContiguousHistory(all))
+  ok('  and its graph is narrow', graphWidth(buildGraph(all)) <= 2,
+    String(graphWidth(buildGraph(all))))
+
+  const matched = await getLog({ cwd, search: { author: 'Grace' } })
+  ok('a search result is not contiguous', !isContiguousHistory(matched))
+
+  // The tell: with parents missing, lanes open and never close, so the graph
+  // grows a column per hole.
+  const holes = new Set(matched.map(c => c.hash))
+  const missing = matched
+    .slice(0, -1)
+    .reduce((n, c) => n + c.parents.filter(p => !holes.has(p)).length, 0)
+  ok('  because its parents are mostly absent', missing > 0, `${missing} missing`)
+  ok('  and drawing it would invent lanes',
+    graphWidth(buildGraph(matched)) > graphWidth(buildGraph(all)),
+    `${graphWidth(buildGraph(matched))} vs ${graphWidth(buildGraph(all))}`)
+
+  // A single commit, and an empty result, are trivially fine.
+  ok('one commit is contiguous', isContiguousHistory(all.slice(0, 1)))
+  ok('no commits is contiguous', isContiguousHistory([]))
+
+  // The last commit's parents are always beyond the walk, and that is not a
+  // hole — otherwise every page of ordinary history would be rejected.
+  ok('a truncated page is still contiguous',
+    isContiguousHistory(await getLog({ cwd, limit: 5 })))
+}
+
 rmSync(cwd, { recursive: true, force: true })
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

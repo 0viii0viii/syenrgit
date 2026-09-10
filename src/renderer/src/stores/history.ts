@@ -7,6 +7,8 @@ interface HistoryState {
   commits: CommitSummary[]
   graph: GraphRow[]
   graphWidth: number
+  /** False when the list is a search result rather than contiguous history. */
+  contiguous: boolean
   refs: RefList | null
   /** Hash of the selected commit. */
   selected: string | null
@@ -50,6 +52,7 @@ const EMPTY = {
   commits: [],
   graph: [],
   graphWidth: 0,
+  contiguous: true,
   refs: null,
   selected: null,
   detail: null,
@@ -101,6 +104,7 @@ export const useHistory = create<HistoryState>((set, get) => ({
         commits: page.commits,
         graph: page.graph,
         graphWidth: page.graphWidth,
+        contiguous: page.contiguous,
         refs,
         searching,
         error: null

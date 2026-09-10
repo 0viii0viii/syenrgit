@@ -140,3 +140,30 @@ export function graphWidth(rows: GraphRow[]): number {
   }
   return max
 }
+
+/**
+ * Whether a lane graph would mean anything for this list.
+ *
+ * The graph draws parent-child edges, so it is only truthful when the list is
+ * contiguous history — every commit's parents present, except at the boundary
+ * where the walk stopped. A search result is a *set* of matching commits, so
+ * most of its parents are absent and the lanes open without ever closing:
+ * eight matching commits produced six lanes in a repository whose real graph
+ * has three.
+ *
+ * Decided from the data rather than from "is the user searching", so any
+ * future filter that punches holes in the list is covered too.
+ */
+export function isContiguousHistory(commits: CommitSummary[]): boolean {
+  if (commits.length <= 1) return true
+  const present = new Set(commits.map((c) => c.hash))
+
+  // The last commit is the boundary: its parents are simply beyond where the
+  // walk stopped, which is true of every page of ordinary history.
+  for (let i = 0; i < commits.length - 1; i++) {
+    for (const parent of commits[i]!.parents) {
+      if (!present.has(parent)) return false
+    }
+  }
+  return true
+}

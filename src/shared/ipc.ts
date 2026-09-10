@@ -179,6 +179,12 @@ export interface LogPage {
   graph: GraphRow[]
   /** Widest lane count in this page. */
   graphWidth: number
+  /**
+   * Whether the lane graph is truthful for this list. False for a search
+   * result, which is a set of matching commits rather than contiguous
+   * history — its parents are mostly absent, so the lanes would be fiction.
+   */
+  contiguous: boolean
 }
 
 export interface MergeRequest {

@@ -363,6 +363,16 @@ others belongs to a message search. Everything else is a message search, run
 with `--fixed-strings` so a message full of regex punctuation matches
 literally.
 
+**The graph is dropped for a search result.** A lane graph draws parent-child
+edges, so it only means anything when the list is contiguous history — every
+commit's parents present, except at the boundary where the walk stopped. A
+search result is a *set* of matching commits, so most of its parents are
+absent and the lanes open without ever closing: eight matching commits
+produced six lanes in a repository whose real graph has three. The check is
+`isContiguousHistory`, decided from the data rather than from "is the user
+searching", so any future filter that punches holes is covered too. Scoping to
+a ref stays contiguous and keeps its graph.
+
 The ref filter is client-side, because the whole list is already loaded. It
 matches subsequences — "fa" reaches "feature/auth" — but requires the
 characters in order, or the filter stops being predictable. Matches are ranked

@@ -89,6 +89,25 @@ function parseSummary(record: string): CommitSummary | null {
 const DEFAULT_REVISIONS = ['--branches', '--tags', '--remotes', 'HEAD']
 
 /**
+ * Whether the repository has any commit at all.
+ *
+ * A freshly initialised repository has no HEAD, and naming it in the walk
+ * makes `git log` fail with "ambiguous argument 'HEAD'" — so an empty history
+ * arrives as an error instead of an empty list.
+ */
+async function hasAnyCommit(cwd: string): Promise<boolean> {
+  const head = await gitLine(['rev-parse', '--verify', '--quiet', 'HEAD'], { cwd }).catch(
+    () => ''
+  )
+  if (head) return true
+  // HEAD can be unborn while another branch still holds commits.
+  const refs = await git(['for-each-ref', '--count=1', '--format=%(objectname)', 'refs/'], {
+    cwd
+  }).catch(() => '')
+  return refs.trim() !== ''
+}
+
+/**
  * What to match commits against.
  *
  * Every field is handed to `git log`, not applied to a page of results: a
@@ -183,6 +202,9 @@ async function resolveHash(cwd: string, text: string): Promise<string | null> {
 
 export async function getLog(req: LogRequest): Promise<CommitSummary[]> {
   const search = req.search
+
+  // An unborn repository has no history; that is an empty list, not a failure.
+  if (!(await hasAnyCommit(req.cwd))) return []
 
   // A hash match is an exact lookup, not a filter: the user wants that commit,
   // and combining it with --grep would ask for a commit that matches both.

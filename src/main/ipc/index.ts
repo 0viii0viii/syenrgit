@@ -34,7 +34,7 @@ import { discoverRepo } from '../git/repo.js'
 import { getStatus } from '../git/status.js'
 import { getCommitFileDiff, getFileDiff, getUntrackedDiff } from '../git/diff.js'
 import { getCommitDetail, getLog } from '../git/log.js'
-import { buildGraph, graphWidth } from '../git/graph.js'
+import { buildGraph, graphWidth, isContiguousHistory } from '../git/graph.js'
 import { listRefs } from '../git/refs.js'
 import { getMergeDocument } from '../git/merge.js'
 import { stashApply, stashDrop, stashPush } from '../git/stash.js'
@@ -238,7 +238,12 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
       ...(req.search !== undefined ? { search: req.search } : {})
     })
     const graph = buildGraph(commits)
-    return { commits, graph, graphWidth: graphWidth(graph) }
+    return {
+      commits,
+      graph,
+      graphWidth: graphWidth(graph),
+      contiguous: isContiguousHistory(commits)
+    }
   })
 
   handle(IPC.commitDetail, (cwd: string, hash: string) => getCommitDetail(cwd, hash))
