@@ -2,7 +2,7 @@ name: Release
 
 # Cutting a tag publishes the installers. electron-updater reads the release
 # assets — latest.yml on Windows, latest-mac.yml on macOS — to find updates,
-# so both must land in the same GitHub release.
+# so both must land in the same GitHub release as the binaries.
 on:
   push:
     tags:
@@ -17,8 +17,8 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    name: Release (${{ matrix.os }})
+  build:
+    name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       # Do not cancel the other platform when one fails: a usable Windows
@@ -40,15 +40,72 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: pnpm build
+      - run: pnpm build
 
-      - name: Package and publish
-        # The release is created as a draft so both platforms can attach their
-        # assets before anyone sees a half-populated release.
-        run: pnpm exec electron-builder --publish always
+      - name: Package
+        # Packaging only. electron-builder's own publisher starts its uploads
+        # without awaiting them, so a fast job can exit mid-transfer and leave
+        # the release missing assets. Uploading is a separate, synchronous step.
+        run: pnpm exec electron-builder --publish never
+        env:
+          # Unsigned builds; without this electron-builder hunts for a signing
+          # identity on macOS and fails the job.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}-release
+          # The .yml manifests are what electron-updater reads; the blockmaps
+          # let it download only the changed parts of an update.
+          path: |
+            release/*.exe
+            release/*.dmg
+            release/*.zip
+            release/*.blockmap
+            release/latest*.yml
+          retention-days: 3
+          if-no-files-found: error
+
+  publish:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect
+        run: |
+          mkdir -p release
+          find artifacts -type f -exec cp {} release/ \;
+          ls -la release/
+
+      - name: Verify both platforms produced an installer
+        # A release missing one platform's manifest silently breaks that
+        # platform's updater, so fail loudly instead of publishing it.
+        run: |
+          for required in "*.exe" "latest.yml" "*.dmg" "latest-mac.yml"; do
+            if ! compgen -G "release/$required" > /dev/null; then
+              echo "::error::no file matching $required — refusing to publish a partial release"
+              exit 1
+            fi
+          done
+          echo "all required assets present"
+
+      - name: Publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Unsigned builds. Without this, electron-builder tries to find a
-          # signing identity on macOS and fails the job.
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          # Create the release if this tag has never been published, then
+          # attach everything. --clobber makes a re-run idempotent.
+          gh release view "$TAG" >/dev/null 2>&1 \
+            || gh release create "$TAG" --draft --title "$TAG" --generate-notes
+          gh release upload "$TAG" release/* --clobber
+          gh release edit "$TAG" --draft=false
+          echo "published $TAG"
