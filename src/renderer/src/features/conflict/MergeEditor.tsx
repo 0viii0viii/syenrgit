@@ -24,9 +24,39 @@ import { useMerge } from '@/stores/merge'
 import { useRepo } from '@/stores/repo'
 import { buildMergeRows, type MergeRow } from './merge-rows'
 import { resolvedLines, sidesOf, toggleSide } from '@shared/merge'
-import type { MergeChunkType } from '@shared/git'
 
 type Pane = 'ours' | 'result' | 'theirs'
+
+/**
+ * How a conflicting region is drawn in one pane.
+ *
+ * A conflict is a span of lines, not the single row the arrows sit on, and
+ * without the span drawn there is no way to tell which code an arrow governs.
+ * Each pane marks its own candidate block: a tinted background, a rule down
+ * the left edge, and a cap at the bottom, with the action row above supplying
+ * the top — together a bracket around exactly the lines at stake.
+ */
+function conflictRegion(pane: Pane, row: Extract<MergeRow, { kind: 'line' }>): string {
+  const inResult = pane === 'ours' ? row.sides?.ours : pane === 'theirs' ? row.sides?.theirs : true
+
+  const tint =
+    pane === 'ours'
+      ? 'bg-conflict-ours-bg border-l-conflict-ours-border'
+      : pane === 'theirs'
+        ? 'bg-conflict-theirs-bg border-l-conflict-theirs-border'
+        : row.decided
+          ? 'border-l-conflict-base-border'
+          : 'bg-conflict-unresolved-bg border-l-conflict-unresolved-border'
+
+  return cn(
+    'border-l-2',
+    tint,
+    row.last && 'border-b border-b-border-default',
+    // Once a side has been rejected its block stays visible — you need to see
+    // what you turned down — but stops competing with the one that won.
+    pane !== 'result' && row.decided && !inResult && 'opacity-40'
+  )
+}
 
 /**
  * Per-pane tint for a chunk.
@@ -34,11 +64,9 @@ type Pane = 'ours' | 'result' | 'theirs'
  * Auto-merged chunks stay visible rather than blending into context: a merge
  * tool that hides what it decided for you is how changes get lost silently.
  */
-function cellClass(type: MergeChunkType, pane: Pane, resolved: boolean): string {
-  if (type === 'conflict') {
-    if (!resolved) return pane === 'result' ? 'bg-conflict-unresolved-bg' : ''
-    return ''
-  }
+function cellClass(row: Extract<MergeRow, { kind: 'line' }>, pane: Pane): string {
+  const type = row.type
+  if (type === 'conflict') return conflictRegion(pane, row)
   if (type === 'unchanged') return ''
   if (type === 'both-same') return 'bg-conflict-base-bg'
   // 'ours' / 'theirs': tint the side that won, and the result it produced.
@@ -382,11 +410,17 @@ function ActionRow({
   const sides = sidesOf(row.resolution)
   const custom = row.resolution?.kind === 'custom'
 
+  // Shares the region's left rule so the bracket runs unbroken from this row
+  // down through the lines it governs.
   const frame = cn(
-    'flex h-full items-center gap-1 border-y px-2',
+    'flex h-full items-center gap-1 border-y border-l-2 px-2',
     decided
       ? 'border-border-subtle bg-surface-sunken'
-      : 'border-conflict-unresolved-border bg-conflict-unresolved-bg/40'
+      : 'border-conflict-unresolved-border bg-conflict-unresolved-bg/40',
+    pane === 'ours' && 'border-l-conflict-ours-border',
+    pane === 'theirs' && 'border-l-conflict-theirs-border',
+    pane === 'result' &&
+      (decided ? 'border-l-conflict-base-border' : 'border-l-conflict-unresolved-border')
   )
 
   // The arrows sit at each side pane's inner edge, next to the Result column
@@ -460,9 +494,11 @@ function LineCell({
     <div
       className={cn(
         'flex h-full items-center px-2',
-        cellClass(row.type, pane, row.resolved),
+        cellClass(row, pane),
         // A null means this pane has no line here — the other side is longer.
-        text === null && 'bg-surface-inset/40'
+        // Inside a conflict the region's own tint says more than the filler
+        // would, so only unconflicted padding is greyed.
+        text === null && row.type !== 'conflict' && 'bg-surface-inset/40'
       )}
     >
       <span className="selectable truncate whitespace-pre">{text ?? ''}</span>

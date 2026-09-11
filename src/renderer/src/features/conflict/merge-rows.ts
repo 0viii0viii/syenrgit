@@ -1,5 +1,5 @@
 import type { MergeChunk, MergeChunkType } from '@shared/git'
-import { resolvedLines, type Resolution } from '@shared/merge'
+import { resolvedLines, sidesOf, type Resolution, type SidesIn } from '@shared/merge'
 
 export type MergeRow =
   | {
@@ -13,7 +13,15 @@ export type MergeRow =
       kind: 'line'
       chunkId: number
       type: MergeChunkType
-      resolved: boolean
+      /** First and last line of the chunk, so its extent can be drawn. */
+      first: boolean
+      last: boolean
+      /**
+       * Which sides this chunk's resolution keeps, for conflicts only. Lets a
+       * pane show at a glance whether its block is in the result.
+       */
+      sides: SidesIn | null
+      decided: boolean
       ours: string | null
       result: string | null
       theirs: string | null
@@ -44,13 +52,17 @@ export function buildMergeRows(
     }
 
     const height = Math.max(chunk.ours.length, chunk.theirs.length, result?.length ?? 0)
+    const sides = isConflict ? sidesOf(resolution) : null
 
     for (let i = 0; i < height; i++) {
       rows.push({
         kind: 'line',
         chunkId: chunk.id,
         type: chunk.type,
-        resolved: !isConflict || result !== null,
+        first: i === 0,
+        last: i === height - 1,
+        sides,
+        decided: resolution !== undefined,
         ours: chunk.ours[i] ?? null,
         result: result?.[i] ?? null,
         theirs: chunk.theirs[i] ?? null
