@@ -547,10 +547,11 @@ column would read "2mo" all the way down.
 
 ```
 pnpm dev           # electron-vite dev server with HMR
-pnpm build         # typecheck + bundle + token check
+pnpm build         # renderer check + typecheck + bundle + token check
 pnpm test          # integration suites against real repositories
 pnpm typecheck     # main and renderer are checked separately
 pnpm check:tokens  # see below (needs a build first)
+pnpm check:renderer # see below
 pnpm icon          # regenerate build/icon.png
 pnpm build:win     # package a Windows installer locally
 pnpm build:mac     # package a macOS dmg locally
@@ -576,6 +577,13 @@ git push --follow-tags
 alongside the installers. Those manifests are what `electron-updater` reads, so
 they must land in the same release as the binaries — which is why both
 platforms publish into one draft.
+
+`check:renderer` fails the build when renderer-reachable code refers to a Node
+global. The renderer runs with contextIsolation and no node integration, so
+`process`, `require` and `__dirname` are simply absent — a reference throws at
+render time and unmounts the pane. Types do not catch it: `src/shared` is
+typechecked against Node lib for the main process, so `process.platform` is
+valid there and still explodes the moment the renderer imports the same file.
 
 `check:tokens` fails the build when a component uses a Tailwind utility that
 generates no CSS. This catches a failure mode specific to a token-driven design

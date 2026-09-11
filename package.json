@@ -10,7 +10,7 @@
   "type": "module",
   "scripts": {
     "dev": "electron-vite dev",
-    "build": "pnpm typecheck && electron-vite build && pnpm check:tokens",
+    "build": "pnpm check:renderer && pnpm typecheck && electron-vite build && pnpm check:tokens",
     "preview": "electron-vite preview",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
@@ -22,7 +22,8 @@
     "build:win": "pnpm build && electron-builder --win --publish never",
     "build:mac": "pnpm build && electron-builder --mac --publish never",
     "icon": "node scripts/make-icon.mjs",
-    "test": "node tests/run.mjs"
+    "test": "node tests/run.mjs",
+    "check:renderer": "node scripts/check-renderer-globals.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
