@@ -81,5 +81,54 @@ check('shifted offsets', 'a\nb\nc\nd\ne\nf',
   ok ? pass++ : fail++
 }
 
+
+// --- arrows put a side in and take it back out ----------------------------
+{
+  const { sidesOf, toggleSide } = await import('@shared/merge.js')
+  const k = (r: unknown): string => (r as { kind: string } | undefined)?.kind ?? 'undecided'
+
+  // This suite reports through `check`; these assertions are plain booleans.
+  const ok = (name: string, condition: boolean, detail = ''): void => {
+    console.log(condition ? '  ok  ' : ' FAIL ', name, detail)
+    condition ? pass++ : fail++
+  }
+
+  // The order the sides go in is the order they come out in.
+  const oursFirst = toggleSide(toggleSide(undefined, 'ours'), 'theirs')
+  ok('ours then theirs is both', k(oursFirst) === 'both', k(oursFirst))
+  const theirsFirst = toggleSide(toggleSide(undefined, 'theirs'), 'ours')
+  ok('theirs then ours is both reversed', k(theirsFirst) === 'both-reverse', k(theirsFirst))
+
+  // Taking one back out leaves the other.
+  ok('removing ours from both leaves theirs',
+    k(toggleSide(oursFirst, 'ours')) === 'theirs', k(toggleSide(oursFirst, 'ours')))
+  ok('removing theirs from both leaves ours',
+    k(toggleSide(oursFirst, 'theirs')) === 'ours', k(toggleSide(oursFirst, 'theirs')))
+
+  // Removing the last side is undoing a choice, not making the opposite one.
+  ok('removing the only side returns to undecided',
+    toggleSide({ kind: 'ours' }, 'ours') === undefined, k(toggleSide({ kind: 'ours' }, 'ours')))
+
+  // Every arrow press is reversible by pressing it again.
+  for (const start of [undefined, { kind: 'ours' }, { kind: 'theirs' }, { kind: 'both' },
+                       { kind: 'both-reverse' }, { kind: 'base' }] as const) {
+    for (const side of ['ours', 'theirs'] as const) {
+      const there = toggleSide(start, side)
+      const back = toggleSide(there, side)
+      const same = sidesOf(back as never)
+      const was = sidesOf(start as never)
+      ok(`  ${k(start)} + ${side} twice returns to the same sides`,
+        same.ours === was.ours && same.theirs === was.theirs,
+        `${k(start)} -> ${k(there)} -> ${k(back)}`)
+    }
+  }
+
+  ok('base reports neither side in',
+    !sidesOf({ kind: 'base' }).ours && !sidesOf({ kind: 'base' }).theirs, 'base')
+  ok('a hand edit reports neither side in',
+    !sidesOf({ kind: 'custom', lines: ['x'] }).ours &&
+    !sidesOf({ kind: 'custom', lines: ['x'] }).theirs, 'custom')
+}
+
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

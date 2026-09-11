@@ -1,6 +1,14 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Check, ChevronDown, ChevronUp, Pencil } from 'lucide-react'
+import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  ChevronsLeft,
+  ChevronsRight,
+  Pencil,
+  X
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -15,7 +23,7 @@ import { measureVar } from '@/lib/measure'
 import { useMerge } from '@/stores/merge'
 import { useRepo } from '@/stores/repo'
 import { buildMergeRows, type MergeRow } from './merge-rows'
-import { resolvedLines, type Resolution } from '@shared/merge'
+import { resolvedLines, sidesOf, toggleSide } from '@shared/merge'
 import type { MergeChunkType } from '@shared/git'
 
 type Pane = 'ours' | 'result' | 'theirs'
@@ -41,14 +49,6 @@ function cellClass(type: MergeChunkType, pane: Pane, resolved: boolean): string 
   return ''
 }
 
-const ACTIONS: { key: Resolution['kind']; label: string; title: string }[] = [
-  { key: 'ours', label: 'Ours', title: 'Take our side' },
-  { key: 'theirs', label: 'Theirs', title: 'Take their side' },
-  { key: 'both', label: 'Both', title: 'Ours, then theirs' },
-  { key: 'both-reverse', label: 'Both ⇅', title: 'Theirs, then ours' },
-  { key: 'base', label: 'Base', title: 'Discard both, keep the common ancestor' }
-]
-
 export function MergeEditor(): React.JSX.Element {
   const root = useRepo((s) => s.root)
   const refresh = useRepo((s) => s.refresh)
@@ -59,6 +59,7 @@ export function MergeEditor(): React.JSX.Element {
   const error = useMerge((s) => s.error)
   const setResolution = useMerge((s) => s.setResolution)
   const takeAll = useMerge((s) => s.takeAll)
+  const clearResolution = useMerge((s) => s.clearResolution)
   const close = useMerge((s) => s.close)
   const save = useMerge((s) => s.save)
 
@@ -181,12 +182,16 @@ export function MergeEditor(): React.JSX.Element {
             aria-label="Next conflict">
             <ChevronDown className="size-3.5" />
           </Button>
-          <Button variant="ghost" size="sm" className="h-6 px-2 text-2xs"
+          <Button variant="ghost" size="sm" className="h-6 gap-0.5 px-2 text-2xs"
+            title="Take our side for every conflict"
             onClick={() => takeAll('ours')}>
+            <ChevronsRight className="size-3" />
             All ours
           </Button>
-          <Button variant="ghost" size="sm" className="h-6 px-2 text-2xs"
+          <Button variant="ghost" size="sm" className="h-6 gap-0.5 px-2 text-2xs"
+            title="Take their side for every conflict"
             onClick={() => takeAll('theirs')}>
+            <ChevronsLeft className="size-3" />
             All theirs
           </Button>
           <Button
@@ -265,17 +270,19 @@ export function MergeEditor(): React.JSX.Element {
                       <ActionRow
                         row={row}
                         pane={pane}
-                        onPick={(kind) => {
-                          if (kind === 'custom') {
-                            const chunk = doc.chunks.find((c) => c.id === row.chunkId)
-                            const current = chunk
-                              ? (resolvedLines(chunk, row.resolution) ?? chunk.ours)
-                              : []
-                            setDraft(current.join('\n'))
-                            setEditing(row.chunkId)
-                          } else {
-                            setResolution(row.chunkId, { kind } as Resolution)
-                          }
+                        onToggle={(side) => {
+                          const next = toggleSide(row.resolution, side)
+                          if (next) setResolution(row.chunkId, next)
+                          else clearResolution(row.chunkId)
+                        }}
+                        onNeither={() => setResolution(row.chunkId, { kind: 'base' })}
+                        onEdit={() => {
+                          const chunk = doc.chunks.find((c) => c.id === row.chunkId)
+                          const current = chunk
+                            ? (resolvedLines(chunk, row.resolution) ?? chunk.ours)
+                            : []
+                          setDraft(current.join('\n'))
+                          setEditing(row.chunkId)
                         }}
                       />
                     ) : (
@@ -325,72 +332,117 @@ export function MergeEditor(): React.JSX.Element {
   )
 }
 
+/** One gutter arrow: puts a side into the result, or takes it back out. */
+function SideArrow({
+  side,
+  active,
+  onClick
+}: {
+  side: 'ours' | 'theirs'
+  active: boolean
+  onClick: () => void
+}): React.JSX.Element {
+  // Each arrow points at the Result column it feeds, so the direction says
+  // which way the lines travel rather than which column it sits in.
+  const Icon = side === 'ours' ? ChevronsRight : ChevronsLeft
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      title={active ? `Take ${side} back out of the result` : `Put ${side} into the result`}
+      className={cn(
+        'flex size-5 shrink-0 items-center justify-center rounded-xs border',
+        active
+          ? side === 'ours'
+            ? 'border-transparent bg-conflict-ours-content text-content-inverted'
+            : 'border-transparent bg-conflict-theirs-content text-content-inverted'
+          : 'border-border-default bg-surface-raised text-content-secondary hover:text-content-primary'
+      )}
+    >
+      <Icon className="size-3" />
+    </button>
+  )
+}
+
 function ActionRow({
   row,
   pane,
-  onPick
+  onToggle,
+  onNeither,
+  onEdit
 }: {
   row: Extract<MergeRow, { kind: 'action' }>
   pane: Pane
-  onPick: (kind: Resolution['kind'] | 'custom') => void
+  onToggle: (side: 'ours' | 'theirs') => void
+  onNeither: () => void
+  onEdit: () => void
 }): React.JSX.Element {
   const decided = row.resolution !== undefined
+  const sides = sidesOf(row.resolution)
+  const custom = row.resolution?.kind === 'custom'
 
-  // The buttons live in the result column; the side panes render a matching
-  // strip so the three columns stay aligned row for row.
-  if (pane !== 'result') {
+  const frame = cn(
+    'flex h-full items-center gap-1 border-y px-2',
+    decided
+      ? 'border-border-subtle bg-surface-sunken'
+      : 'border-conflict-unresolved-border bg-conflict-unresolved-bg/40'
+  )
+
+  // The arrows sit at each side pane's inner edge, next to the Result column
+  // they feed — the position a gutter would occupy if the panes had one.
+  if (pane === 'ours') {
     return (
-      <div
-        className={cn(
-          'h-full border-y',
-          decided
-            ? 'border-border-subtle bg-surface-sunken'
-            : 'border-conflict-unresolved-border bg-conflict-unresolved-bg/40'
-        )}
-      />
+      <div className={cn(frame, 'justify-end')}>
+        <SideArrow side="ours" active={sides.ours} onClick={() => onToggle('ours')} />
+      </div>
+    )
+  }
+
+  if (pane === 'theirs') {
+    return (
+      <div className={frame}>
+        <SideArrow side="theirs" active={sides.theirs} onClick={() => onToggle('theirs')} />
+      </div>
     )
   }
 
   return (
-    <div
-      className={cn(
-        'flex h-full items-center gap-1 border-y px-2',
-        decided
-          ? 'border-border-subtle bg-surface-sunken'
-          : 'border-conflict-unresolved-border bg-conflict-unresolved-bg/40'
+    <div className={frame}>
+      <span className="shrink-0 font-sans text-2xs text-content-tertiary">#{row.ordinal}</span>
+
+      {custom && (
+        <span className="shrink-0 font-sans text-2xs text-content-secondary">edited by hand</span>
       )}
-    >
-      <span className="shrink-0 font-sans text-2xs text-content-tertiary">
-        #{row.ordinal}
-      </span>
-      {ACTIONS.map((action) => (
-        <button
-          key={action.key}
-          type="button"
-          title={action.title}
-          onClick={() => onPick(action.key)}
-          className={cn(
-            'shrink-0 rounded-xs px-1 font-sans text-2xs leading-4',
-            row.resolution?.kind === action.key
-              ? 'bg-accent-bg text-accent-content'
-              : 'text-content-secondary hover:bg-surface-active hover:text-content-primary'
-          )}
-        >
-          {action.label}
-        </button>
-      ))}
+
       <button
         type="button"
-        title="Edit this region by hand"
-        onClick={() => onPick('custom')}
+        title="Take neither side — keep the common ancestor"
+        onClick={onNeither}
+        aria-pressed={row.resolution?.kind === 'base'}
         className={cn(
-          'ml-auto flex size-4 shrink-0 items-center justify-center rounded-xs',
-          row.resolution?.kind === 'custom'
+          'ml-auto flex size-5 shrink-0 items-center justify-center rounded-xs',
+          row.resolution?.kind === 'base'
             ? 'bg-accent-bg text-accent-content'
             : 'text-content-tertiary hover:bg-surface-active hover:text-content-primary'
         )}
       >
-        <Pencil className="size-2.5" />
+        <X className="size-3" />
+      </button>
+
+      <button
+        type="button"
+        title="Edit this region by hand"
+        onClick={onEdit}
+        aria-pressed={custom}
+        className={cn(
+          'flex size-5 shrink-0 items-center justify-center rounded-xs',
+          custom
+            ? 'bg-accent-bg text-accent-content'
+            : 'text-content-tertiary hover:bg-surface-active hover:text-content-primary'
+        )}
+      >
+        <Pencil className="size-3" />
       </button>
     </div>
   )

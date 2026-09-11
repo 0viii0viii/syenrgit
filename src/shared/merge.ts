@@ -97,3 +97,52 @@ export function assembleMerge(
   }
   return out.join('\n')
 }
+
+/** Which sides a resolution puts into the result. */
+export interface SidesIn {
+  ours: boolean
+  theirs: boolean
+}
+
+/**
+ * Read a resolution back as two independent switches.
+ *
+ * `base` and `custom` report neither side: base is the deliberate choice to
+ * take neither, and a hand-edited region is no longer described by which side
+ * it came from.
+ */
+export function sidesOf(resolution: Resolution | undefined): SidesIn {
+  switch (resolution?.kind) {
+    case 'ours':
+      return { ours: true, theirs: false }
+    case 'theirs':
+      return { ours: false, theirs: true }
+    case 'both':
+    case 'both-reverse':
+      return { ours: true, theirs: true }
+    default:
+      return { ours: false, theirs: false }
+  }
+}
+
+/**
+ * Put one side into the result, or take it back out.
+ *
+ * The order the two sides go in is the order they end up in, which is what
+ * makes two arrows enough to express `both` and `both-reverse` without a
+ * separate control for the ordering. Taking the last side back out returns the
+ * region to undecided rather than to `base`: the user removed a choice, they
+ * did not make the opposite one.
+ */
+export function toggleSide(
+  resolution: Resolution | undefined,
+  side: 'ours' | 'theirs'
+): Resolution | undefined {
+  const current = sidesOf(resolution)
+  if (side === 'ours') {
+    if (current.ours) return current.theirs ? { kind: 'theirs' } : undefined
+    return current.theirs ? { kind: 'both-reverse' } : { kind: 'ours' }
+  }
+  if (current.theirs) return current.ours ? { kind: 'ours' } : undefined
+  return current.ours ? { kind: 'both' } : { kind: 'theirs' }
+}
