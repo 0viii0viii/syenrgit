@@ -119,7 +119,12 @@ export function CommitBox(): React.JSX.Element | null {
           }
         }}
       />
-      <div className="flex items-center gap-2">
+      {/* Wraps rather than compressing. This row sits in the narrowest column
+          in the app, and without wrapping the hint is the only flexible item,
+          so "2 staged" became "2 st…" while the buttons kept their full
+          width — the text that explains why Commit is disabled is the last
+          thing that should be sacrificed to fit the buttons. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span
           className={cn(
             'truncate text-2xs',
