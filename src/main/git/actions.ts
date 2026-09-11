@@ -202,27 +202,57 @@ export interface CreateTagOptions {
    * a ref, so it is only created when no message is given.
    */
   message?: string
+  /**
+   * Repoint a tag that already exists.
+   *
+   * Only ever moves the local tag. A tag that has been pushed is a published
+   * name, and git will not replace one a client already holds — so moving a
+   * pushed tag needs the remote dealt with too, which is a separate act.
+   */
+  force?: boolean
 }
 
 export async function createTag(options: CreateTagOptions): Promise<string> {
-  const { cwd, name, target, message } = options
+  const { cwd, name, target, message, force } = options
   const trimmed = name.trim()
   if (trimmed === '') throw new Error('A tag name is required')
 
   const annotated = Boolean(message?.trim())
   const args = [
     'tag',
+    ...(force ? ['--force'] : []),
     ...(annotated ? ['--annotate', '--message', message!.trim()] : []),
     trimmed,
     ...(target ? [target] : [])
   ]
   await git(args, { cwd })
+  if (force) return `Moved tag ${trimmed}`
   return `Created ${annotated ? 'annotated ' : ''}tag ${trimmed}`
 }
 
+/** True when the repository already has a tag by this name. */
+export async function tagExists(cwd: string, name: string): Promise<boolean> {
+  const trimmed = name.trim()
+  if (trimmed === '') return false
+  try {
+    await git(['rev-parse', '--verify', '--quiet', `refs/tags/${trimmed}`], { cwd })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Delete a tag here.
+ *
+ * Local only, as `git tag --delete` is. A remote keeps its own copy of every
+ * tag it was pushed, and deleting here tells it nothing — which is why the
+ * menu offers the remote deletion as its own item rather than implying this
+ * one covers it.
+ */
 export async function deleteTag(cwd: string, name: string): Promise<string> {
   await git(['tag', '--delete', name], { cwd })
-  return `Deleted tag ${name}`
+  return `Deleted tag ${name} here. It still exists on any remote it was pushed to.`
 }
 
 /** True when a name is legal for `git tag`. */

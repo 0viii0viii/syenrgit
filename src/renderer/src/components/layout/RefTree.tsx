@@ -470,9 +470,12 @@ function StashRow({ stash }: { stash: StashEntry }): React.JSX.Element {
 }
 
 /**
- * A tag is published on its own schedule — cutting a release is a separate act
- * from publishing the branch it sits on — so pushing one is offered here
- * rather than folded into the branch push.
+ * What can be done to a tag.
+ *
+ * Split by where it takes effect, because git's own commands are and the
+ * difference is invisible until much later: `git tag --delete` removes the tag
+ * here and tells the remote nothing, so re-cutting the same name is rejected
+ * for a tag the user believes they deleted.
  */
 function TagMenu({
   name,
@@ -486,13 +489,14 @@ function TagMenu({
   const remotes = useActions((s) => s.remotes)
   const pushTags = useActions((s) => s.pushTags)
   const deleteTag = useActions((s) => s.deleteTag)
+  const deleteRemoteTag = useActions((s) => s.deleteRemoteTag)
 
   if (!root) return children
 
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
-      <ContextMenuContent className="w-56">
+      <ContextMenuContent className="w-72">
         {remotes.length === 0 ? (
           <ContextMenuItem disabled>No remote configured</ContextMenuItem>
         ) : (
@@ -506,14 +510,40 @@ function TagMenu({
             </ContextMenuItem>
           ))
         )}
+
+        {/* Publishing a moved tag needs this, and it deserves its own item
+            rather than a silent retry: everyone who already fetched keeps the
+            old commit, because git will not overwrite a tag a client holds. */}
+        {remotes.map((remote) => (
+          <ContextMenuItem
+            key={`force-${remote.name}`}
+            disabled={busy !== null}
+            onSelect={() => void pushTags(root, remote.name, name, true)}
+          >
+            Force-push {name} to {remote.name}
+            <span className="ml-auto text-2xs text-content-tertiary">moves it</span>
+          </ContextMenuItem>
+        ))}
+
         <ContextMenuSeparator />
         <ContextMenuItem
           variant="destructive"
           disabled={busy !== null}
           onSelect={() => void deleteTag(root, name)}
         >
-          Delete tag {name}
+          Delete {name} here
+          <span className="ml-auto text-2xs text-content-tertiary">local only</span>
         </ContextMenuItem>
+        {remotes.map((remote) => (
+          <ContextMenuItem
+            key={`rm-${remote.name}`}
+            variant="destructive"
+            disabled={busy !== null}
+            onSelect={() => void deleteRemoteTag(root, remote.name, name)}
+          >
+            Delete {name} on {remote.name}
+          </ContextMenuItem>
+        ))}
       </ContextMenuContent>
     </ContextMenu>
   )

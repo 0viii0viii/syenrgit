@@ -168,6 +168,14 @@ export interface PushTagsOptions {
   remote: string
   /** A single tag name; omit to push every tag. */
   tag?: string
+  /**
+   * Replace the tag on the remote if it already points somewhere else.
+   *
+   * Needed to publish a moved tag, and worth hesitating over: anyone who has
+   * already fetched keeps the old commit, because git does not overwrite a tag
+   * a client already holds.
+   */
+  force?: boolean
 }
 
 /**
@@ -178,10 +186,53 @@ export interface PushTagsOptions {
  * on a branch push would send unrelated tags along with it.
  */
 export async function pushTags(options: PushTagsOptions): Promise<string> {
-  const { cwd, remote, tag } = options
-  const args = ['push', remote, ...(tag ? [`refs/tags/${tag}`] : ['--tags'])]
-  await runNetwork(cwd, args)
+  const { cwd, remote, tag, force } = options
+  const args = [
+    'push',
+    ...(force ? ['--force'] : []),
+    remote,
+    ...(tag ? [`refs/tags/${tag}`] : ['--tags'])
+  ]
+  try {
+    await runNetwork(cwd, args)
+  } catch (err) {
+    // git's own wording for this is "already exists", which reads as harmless
+    // and leaves out the only two things that resolve it.
+    if (alreadyExists(err)) {
+      throw new Error(
+        `${remote} already has a tag named ${tag ?? 'that'}, pointing at a different commit. ` +
+          `Delete it on ${remote} first, or force-push to move it — ` +
+          'anyone who already fetched will keep the old commit either way.',
+        { cause: err }
+      )
+    }
+    throw err
+  }
+  if (force) return `Force-pushed tag ${tag ?? 'tags'} to ${remote}`
   return tag ? `Pushed tag ${tag} to ${remote}` : `Pushed all tags to ${remote}`
+}
+
+function alreadyExists(err: unknown): boolean {
+  const direct = err instanceof GitError ? err.stderr : ''
+  const cause = (err as { cause?: unknown })?.cause
+  const nested = cause instanceof GitError ? cause.stderr : ''
+  return /already exists/i.test(`${direct}\n${nested}\n${String((err as Error)?.message ?? '')}`)
+}
+
+/**
+ * Delete a tag on a remote.
+ *
+ * Its own operation because deleting a tag locally does not touch the remote,
+ * and the surprise only surfaces much later — when re-cutting the same name is
+ * rejected for a tag the user believes they deleted.
+ */
+export async function deleteRemoteTag(
+  cwd: string,
+  remote: string,
+  tag: string
+): Promise<string> {
+  await runNetwork(cwd, ['push', remote, '--delete', `refs/tags/${tag}`])
+  return `Deleted tag ${tag} on ${remote}`
 }
 
 /** Remote-tracking refs that no longer exist upstream, for a prune preview. */

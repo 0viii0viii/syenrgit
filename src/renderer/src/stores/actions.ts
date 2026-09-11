@@ -35,7 +35,9 @@ interface ActionState {
   fetch: (root: string, prune: boolean) => Promise<boolean>
   pull: (root: string, rebase: boolean) => Promise<PullOutcome | null>
   push: (root: string, options: PushArgs) => Promise<boolean>
-  pushTags: (root: string, remote: string, tag?: string) => Promise<boolean>
+  pushTags: (root: string, remote: string, tag?: string, force?: boolean) => Promise<boolean>
+  /** Delete a tag on a remote. Deleting it locally does not do this. */
+  deleteRemoteTag: (root: string, remote: string, tag: string) => Promise<boolean>
   loadRemotes: (root: string) => Promise<void>
   createBranch: (root: string, options: NewBranchArgs) => Promise<boolean>
   stash: (root: string, message: string, includeUntracked: boolean) => Promise<boolean>
@@ -79,6 +81,8 @@ export interface NewTagArgs {
   target?: string
   /** Given a message, the tag is annotated. */
   message?: string
+  /** Repoint a tag that already exists, rather than failing. */
+  force?: boolean
 }
 
 export interface NewBranchArgs {
@@ -499,13 +503,29 @@ export const useActions = create<ActionState>((set, get) => ({
     }
   },
 
-  pushTags: async (root, remote, tag) => {
+  deleteRemoteTag: async (root, remote, tag) => {
+    set({ busy: 'deleteRemoteTag', error: null, notice: null })
+    try {
+      const message = await window.api.deleteRemoteTag({ cwd: root, remote, tag })
+      await reload(root)
+      set({ notice: message })
+      return true
+    } catch (err) {
+      set({ error: describeError(err) })
+      return false
+    } finally {
+      set({ busy: null })
+    }
+  },
+
+  pushTags: async (root, remote, tag, force) => {
     set({ busy: 'pushTags', error: null, notice: null })
     try {
       const message = await window.api.pushTags({
         cwd: root,
         remote,
-        ...(tag !== undefined ? { tag } : {})
+        ...(tag !== undefined ? { tag } : {}),
+        ...(force ? { force: true } : {})
       })
       await reload(root)
       set({ notice: message })

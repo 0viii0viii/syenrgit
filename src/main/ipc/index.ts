@@ -9,6 +9,7 @@ import type {
   PullRequest,
   PushRequest,
   PushTagsRequest,
+  DeleteRemoteTagRequest,
   CreateTagRequest,
   AddWorktreeRequest,
   PatchRequest,
@@ -47,7 +48,8 @@ import {
   listRemotes,
   pullCurrent,
   pushBranch,
-  pushTags
+  pushTags,
+  deleteRemoteTag
 } from '../git/remote.js'
 import {
   abortOperation,
@@ -55,6 +57,7 @@ import {
   createBranch,
   createCommit,
   createTag,
+  tagExists,
   deleteBranch,
   headCommitMessage,
   deleteTag,
@@ -350,7 +353,8 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
       cwd: req.cwd,
       name: req.name,
       ...(req.target !== undefined ? { target: req.target } : {}),
-      ...(req.message !== undefined ? { message: req.message } : {})
+      ...(req.message !== undefined ? { message: req.message } : {}),
+      ...(req.force !== undefined ? { force: req.force } : {})
     })
   )
   handle(IPC.tagDelete, (cwd: string, name: string) => deleteTag(cwd, name))
@@ -394,6 +398,10 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
       ...(req.forceWithLease !== undefined ? { forceWithLease: req.forceWithLease } : {})
     })
   )
+  handle(IPC.remoteDeleteTag, (req: DeleteRemoteTagRequest) =>
+    deleteRemoteTag(req.cwd, req.remote, req.tag)
+  )
+  handle(IPC.tagExists, (cwd: string, name: string) => tagExists(cwd, name))
   handle(IPC.remotePushTags, (req: PushTagsRequest) =>
     pushTags({ cwd: req.cwd, remote: req.remote, ...(req.tag !== undefined ? { tag: req.tag } : {}) })
   )

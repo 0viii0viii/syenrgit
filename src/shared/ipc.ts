@@ -48,6 +48,7 @@ export const IPC = {
   remotePull: 'remote:pull',
   remotePush: 'remote:push',
   remotePushTags: 'remote:pushTags',
+  remoteDeleteTag: 'remote:deleteTag',
   stashPush: 'stash:push',
   stashApply: 'stash:apply',
   stashDrop: 'stash:drop',
@@ -59,6 +60,7 @@ export const IPC = {
   isMergeCommit: 'sequencer:isMerge',
   tagCreate: 'tag:create',
   tagDelete: 'tag:delete',
+  tagExists: 'tag:exists',
   tagValidate: 'tag:validate',
   branchDelete: 'branch:delete',
   branchMerged: 'branch:merged',
@@ -267,9 +269,17 @@ export interface PushRequest {
   forceWithLease?: boolean
 }
 
+export interface DeleteRemoteTagRequest {
+  cwd: string
+  remote: string
+  tag: string
+}
+
 export interface PushTagsRequest {
   cwd: string
   remote: string
+  /** Replace the tag on the remote if it points elsewhere. */
+  force?: boolean
   /** A single tag; omit to push every tag. */
   tag?: string
 }
@@ -333,6 +343,8 @@ export type SequencerOutcome =
   | { status: 'empty'; message: string }
 
 export interface CreateTagRequest {
+  /** Repoint a tag that already exists, rather than failing. */
+  force?: boolean
   cwd: string
   name: string
   /** Commit to tag; defaults to HEAD. */
@@ -467,6 +479,10 @@ export interface RendererApi {
   pull(req: PullRequest): Promise<PullOutcome>
   push(req: PushRequest): Promise<string>
   pushTags(req: PushTagsRequest): Promise<string>
+  /** Delete a tag on a remote. Deleting it locally does not do this. */
+  deleteRemoteTag(req: DeleteRemoteTagRequest): Promise<string>
+  /** True when a tag by this name already exists here. */
+  tagExists(cwd: string, name: string): Promise<boolean>
   stashPush(req: StashPushRequest): Promise<StashPushOutcome>
   stashApply(req: StashApplyRequest): Promise<StashApplyOutcome>
   stashDrop(cwd: string, ref: string): Promise<string>

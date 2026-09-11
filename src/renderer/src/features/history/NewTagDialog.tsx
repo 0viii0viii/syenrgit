@@ -41,13 +41,21 @@ function NewTagForm({ onOpenChange, target, targetLabel }: Props): React.JSX.Ele
   const [name, setName] = useState('')
   const [message, setMessage] = useState('')
   const [valid, setValid] = useState(true)
+  // Carries the name it describes, so a stale answer never colours a name the
+  // user has since edited — and so nothing has to be reset synchronously.
+  const [taken, setTaken] = useState({ name: '', exists: false })
 
   useEffect(() => {
     if (!root || name.trim() === '') return
     let cancelled = false
     const timer = setTimeout(() => {
-      void window.api.validateTagName(root, name).then((result) => {
-        if (!cancelled) setValid(result)
+      void Promise.all([
+        window.api.validateTagName(root, name),
+        window.api.tagExists(root, name)
+      ]).then(([legal, already]) => {
+        if (cancelled) return
+        setValid(legal)
+        setTaken({ name: name.trim(), exists: already })
       })
     }, 200)
     return () => {
@@ -56,15 +64,18 @@ function NewTagForm({ onOpenChange, target, targetLabel }: Props): React.JSX.Ele
     }
   }, [root, name])
 
+  const exists = taken.exists && taken.name === name.trim()
+
   const showInvalid = name.trim() !== '' && !valid
   const canCreate = root !== null && name.trim() !== '' && valid && busy === null
 
-  const submit = async (): Promise<void> => {
+  const submit = async (force = false): Promise<void> => {
     if (!root || !canCreate) return
     const done = await createTag(root, {
       name: name.trim(),
       ...(target ? { target } : {}),
-      ...(message.trim() ? { message: message.trim() } : {})
+      ...(message.trim() ? { message: message.trim() } : {}),
+      ...(force ? { force: true } : {})
     })
     if (done) onOpenChange(false)
   }
@@ -90,13 +101,22 @@ function NewTagForm({ onOpenChange, target, targetLabel }: Props): React.JSX.Ele
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault()
-              void submit()
+              void submit(exists)
             }
           }}
           className="h-7 text-xs"
         />
         {showInvalid && (
           <p className="text-2xs text-danger-content">Git will not accept that name.</p>
+        )}
+        {/* An existing name is a move, not a mistake — but only here. A tag
+            that has been pushed keeps its old commit on the remote and for
+            everyone who already fetched it. */}
+        {exists && !showInvalid && (
+          <p className="text-2xs text-content-secondary">
+            {name.trim()} already exists. Creating it again moves it here, locally — push it
+            with force to move it on a remote too.
+          </p>
         )}
 
         <Label htmlFor="tag-message" className="pt-1 text-2xs">
@@ -121,8 +141,14 @@ function NewTagForm({ onOpenChange, target, targetLabel }: Props): React.JSX.Ele
         <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
           Cancel
         </Button>
-        <Button size="sm" disabled={!canCreate} onClick={() => void submit()}>
-          {busy === 'createTag' ? 'Creating…' : 'Create tag'}
+        <Button size="sm" disabled={!canCreate} onClick={() => void submit(exists)}>
+          {busy === 'createTag'
+            ? exists
+              ? 'Moving…'
+              : 'Creating…'
+            : exists
+              ? 'Move tag here'
+              : 'Create tag'}
         </Button>
       </DialogFooter>
     </>

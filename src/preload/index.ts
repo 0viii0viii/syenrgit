@@ -13,6 +13,7 @@ import type {
   PullRequest,
   PushRequest,
   PushTagsRequest,
+  DeleteRemoteTagRequest,
   AddWorktreeRequest,
   CreateTagRequest,
   PatchRequest,
@@ -71,6 +72,9 @@ const api: RendererApi = {
   pull: (req: PullRequest) => ipcRenderer.invoke(IPC.remotePull, req),
   push: (req: PushRequest) => ipcRenderer.invoke(IPC.remotePush, req),
   pushTags: (req: PushTagsRequest) => ipcRenderer.invoke(IPC.remotePushTags, req),
+  deleteRemoteTag: (req: DeleteRemoteTagRequest) =>
+    ipcRenderer.invoke(IPC.remoteDeleteTag, req),
+  tagExists: (cwd, name) => ipcRenderer.invoke(IPC.tagExists, cwd, name),
   stashPush: (req: StashPushRequest) => ipcRenderer.invoke(IPC.stashPush, req),
   stashApply: (req: StashApplyRequest) => ipcRenderer.invoke(IPC.stashApply, req),
   stashDrop: (cwd, ref) => ipcRenderer.invoke(IPC.stashDrop, cwd, ref),

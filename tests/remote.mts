@@ -103,5 +103,75 @@ ok('unreachable remote is explained',
   /credential helper|Cannot reach the remote/.test(authErr), authErr.slice(0, 110))
 
 rmSync(base, { recursive: true, force: true })
+
+// --- tags: moving one, and the remote keeping its own copy ----------------
+{
+  const { createTag, deleteTag, tagExists } = await import('@main/git/actions.js')
+  const { pushTags, deleteRemoteTag } = await import('@main/git/remote.js')
+
+  const bare = mkdtempSync(join(tmpdir(), 'tagremote-'))
+  execFileSync('git', ['init', '-q', '--bare', bare])
+  const work = mkdtempSync(join(tmpdir(), 'tagwork-'))
+  execFileSync('git', ['init', '-q', '-b', 'main', work])
+  const g = (...a: string[]) => execFileSync('git', a, { cwd: work, encoding: 'utf8' })
+  g('config', 'user.name', 'T'); g('config', 'user.email', 't@t.t')
+  g('config', 'core.autocrlf', 'false')
+  g('remote', 'add', 'origin', bare)
+  writeFileSync(join(work, 'a.txt'), 'one\n'); g('add', '-A'); g('commit', '-qm', 'first')
+  const first = g('rev-parse', 'HEAD').trim()
+  writeFileSync(join(work, 'a.txt'), 'two\n'); g('add', '-A'); g('commit', '-qm', 'second')
+  const second = g('rev-parse', 'HEAD').trim()
+  g('push', '-q', 'origin', 'main')
+
+  await createTag({ cwd: work, name: 'v1', target: first })
+  ok('the tag exists here', await tagExists(work, 'v1'), 'v1')
+  await pushTags({ cwd: work, remote: 'origin', tag: 'v1' })
+
+  // stderr is dropped: one call below deliberately asks for a ref that is gone.
+  const onRemote = (): string =>
+    execFileSync('git', ['rev-parse', 'refs/tags/v1'], {
+      cwd: bare,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim()
+  ok('and on the remote', onRemote() === first, onRemote().slice(0, 7))
+
+  // This is the trap: deleting here leaves the remote's copy untouched.
+  await deleteTag(work, 'v1')
+  ok('deleting here does not delete there',
+    !(await tagExists(work, 'v1')) && onRemote() === first, onRemote().slice(0, 7))
+
+  // Re-cutting the same name and pushing is what the remote rejects, and the
+  // message has to say what actually resolves it.
+  await createTag({ cwd: work, name: 'v1', target: second })
+  let rejected = ''
+  try { await pushTags({ cwd: work, remote: 'origin', tag: 'v1' }) }
+  catch (err) { rejected = (err as Error).message }
+  ok('re-pushing a name the remote still holds is refused',
+    rejected !== '', rejected.slice(0, 40))
+  ok('  and the message names both ways out',
+    /delete it on origin/i.test(rejected) && /force-push/i.test(rejected), rejected.slice(0, 90))
+
+  // Way out one: force.
+  await pushTags({ cwd: work, remote: 'origin', tag: 'v1', force: true })
+  ok('forcing moves the tag on the remote', onRemote() === second, onRemote().slice(0, 7))
+
+  // Way out two: delete it there, then push clean.
+  await deleteRemoteTag(work, 'origin', 'v1')
+  let stillThere = true
+  try { onRemote() } catch { stillThere = false }
+  ok('deleting on the remote removes it there', !stillThere, String(stillThere))
+  await pushTags({ cwd: work, remote: 'origin', tag: 'v1' })
+  ok('  and the name is free to push again', onRemote() === second, onRemote().slice(0, 7))
+
+  // A local move is just --force on an existing name.
+  await createTag({ cwd: work, name: 'v1', target: first, force: true })
+  const local = g('rev-parse', 'refs/tags/v1').trim()
+  ok('creating an existing tag with force moves it', local === first, local.slice(0, 7))
+
+  rmSync(bare, { recursive: true, force: true })
+  rmSync(work, { recursive: true, force: true })
+}
+
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
