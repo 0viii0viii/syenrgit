@@ -190,6 +190,14 @@ export function MergeEditor(): React.JSX.Element {
             All theirs
           </Button>
           <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-2xs"
+            onClick={close}
+          >
+            Cancel
+          </Button>
+          <Button
             size="sm"
             className="h-6 gap-1 px-2 text-2xs"
             disabled={remaining > 0 || saving}

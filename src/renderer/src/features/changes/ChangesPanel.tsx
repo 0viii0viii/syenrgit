@@ -1,6 +1,7 @@
-import { GitCompare } from 'lucide-react'
+import { GitCompare, TriangleAlert } from 'lucide-react'
 import { ChangeList } from './ChangeList'
 import { CommitBox } from './CommitBox'
+import { useConflicts } from '@/stores/conflicts'
 import { useRepo } from '@/stores/repo'
 
 /**
@@ -13,7 +14,9 @@ import { useRepo } from '@/stores/repo'
  */
 export function ChangesPanel(): React.JSX.Element {
   const status = useRepo((s) => s.status)
+  const openList = useConflicts((s) => s.openList)
   const count = status?.files.length ?? 0
+  const conflicts = status?.files.filter((f) => f.conflicted).length ?? 0
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -22,6 +25,20 @@ export function ChangesPanel(): React.JSX.Element {
         <span className="text-2xs font-medium text-content-secondary">Changes</span>
         {count > 0 && (
           <span className="text-2xs tabular-nums text-content-tertiary">{count}</span>
+        )}
+
+        {/* The conflict dialog announces itself once and can be dismissed, so
+            there has to be a way back to it that is not finishing the merge. */}
+        {conflicts > 0 && (
+          <button
+            type="button"
+            onClick={openList}
+            className="ml-auto flex shrink-0 items-center gap-1 rounded-xs px-1 text-2xs text-status-conflicted hover:bg-surface-active"
+            title="Show the conflicted files"
+          >
+            <TriangleAlert className="size-2.5" />
+            {conflicts} conflict{conflicts === 1 ? '' : 's'}
+          </button>
         )}
       </div>
 

@@ -13,9 +13,10 @@ import { CommitList } from '@/features/history/CommitList'
 import { CommitSearchBar } from '@/features/history/CommitSearchBar'
 import { HistoryFilter } from '@/features/history/HistoryFilter'
 import { CommitDetail } from '@/features/history/CommitDetail'
-import { MergeEditor } from '@/features/conflict/MergeEditor'
+import { MergeDialog } from '@/features/conflict/MergeDialog'
+import { ConflictsDialog } from '@/features/conflict/ConflictsDialog'
+import { ConflictPlaceholder } from '@/features/conflict/ConflictPlaceholder'
 import { useHistory } from '@/stores/history'
-import { useMerge } from '@/stores/merge'
 import { useWorkspace } from '@/stores/workspace'
 import { useRepo } from '@/stores/repo'
 
@@ -48,7 +49,14 @@ function HistoryPane(): React.JSX.Element {
 
 function Workspace(): React.JSX.Element {
   const focus = useRepo((s) => s.focus)
-  const mergePath = useMerge((s) => s.path)
+  const status = useRepo((s) => s.status)
+  const selection = useRepo((s) => s.selection)
+
+  // A conflicted path has no two-sided diff to show, so the pane offers the
+  // way back into the merge editor instead of an empty diff view.
+  const conflicted =
+    selection !== null &&
+    (status?.files.find((f) => f.path === selection.path)?.conflicted ?? false)
 
   return (
     <ResizablePanelGroup orientation="horizontal">
@@ -93,8 +101,8 @@ function Workspace(): React.JSX.Element {
       <ResizablePanel defaultSize="24%" minSize="18%">
         <ErrorBoundary label="This pane">
           {focus === 'changes' ? (
-            mergePath ? (
-              <MergeEditor />
+            conflicted ? (
+              <ConflictPlaceholder path={selection.path} />
             ) : (
               <StagingDiff />
             )
@@ -144,6 +152,8 @@ export function App(): React.JSX.Element {
       <TitleBar />
       <main className="min-h-0 flex-1">{root ? <Workspace /> : <EmptyState />}</main>
       <StatusBar />
+      <ConflictsDialog />
+      <MergeDialog />
     </div>
   )
 }
