@@ -1,18 +1,10 @@
 import { useMemo } from 'react'
 import { measureVar } from '@/lib/measure'
+import type { GraphMetrics } from '@shared/graphLayout'
 
-export interface GraphMetrics {
-  /** Height of one commit row, px. */
-  row: number
-  /** Horizontal spacing between lanes, px. */
-  lane: number
-  /** Diameter of a commit node, px. */
-  node: number
-  /** Edge stroke width, px. */
-  stroke: number
-}
+export { fitLanes, type GraphMetrics } from '@shared/graphLayout'
 
-const FALLBACK: GraphMetrics = { row: 28, lane: 14, node: 8, stroke: 2 }
+const FALLBACK: GraphMetrics = { row: 28, lane: 14, node: 8, stroke: 2, maxWidth: 176 }
 
 /**
  * Measured once per session and cached at module scope.
@@ -30,7 +22,8 @@ export function useGraphMetrics(): GraphMetrics {
       row: measureVar('--layout-row-height', FALLBACK.row),
       lane: measureVar('--graph-lane-width', FALLBACK.lane),
       node: measureVar('--graph-node-size', FALLBACK.node),
-      stroke: measureVar('--graph-stroke-width', FALLBACK.stroke)
+      stroke: measureVar('--graph-stroke-width', FALLBACK.stroke),
+      maxWidth: measureVar('--graph-max-width', FALLBACK.maxWidth)
     }
     return cached
   }, [])

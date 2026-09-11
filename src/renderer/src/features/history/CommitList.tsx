@@ -15,7 +15,7 @@ import { useRepo } from '@/stores/repo'
 import { InteractiveRebaseDialog } from './InteractiveRebaseDialog'
 import { NewTagDialog } from './NewTagDialog'
 import { CommitGraph } from './CommitGraph'
-import { useGraphMetrics } from './useGraphMetrics'
+import { fitLanes, useGraphMetrics } from './useGraphMetrics'
 import { RefBadges } from './RefBadges'
 
 /**
@@ -107,11 +107,11 @@ export function CommitList(): React.JSX.Element {
     )
   }
 
-  // A search result is a set of matching commits, not contiguous history, so
-  // its lanes would connect commits that are not actually parent and child.
-  // The column is dropped rather than drawn wrong.
+  // A search result is a set of matching commits, not a walk, so its lanes
+  // would connect commits that are not parent and child. The column is dropped
+  // rather than drawn wrong.
   const showGraph = contiguous
-  const graphPx = showGraph ? Math.max(width, 1) * metrics.lane : 0
+  const graphPx = showGraph ? fitLanes(metrics, width).width : 0
   const first = items[0]?.index ?? 0
   const last = items[items.length - 1]?.index ?? 0
 

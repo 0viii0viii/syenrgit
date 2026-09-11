@@ -35,7 +35,7 @@ import { discoverRepo } from '../git/repo.js'
 import { getStatus } from '../git/status.js'
 import { getCommitFileDiff, getFileDiff, getUntrackedDiff } from '../git/diff.js'
 import { getCommitDetail, getLog } from '../git/log.js'
-import { buildGraph, graphWidth, isContiguousHistory } from '../git/graph.js'
+import { buildGraph, graphWidth } from '../git/graph.js'
 import { listRefs } from '../git/refs.js'
 import { getMergeDocument } from '../git/merge.js'
 import { stashApply, stashDrop, stashPush } from '../git/stash.js'
@@ -245,14 +245,29 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
       ...(req.paths !== undefined ? { paths: req.paths } : {}),
       ...(req.search !== undefined ? { search: req.search } : {})
     })
-    // The graph is only built when it would mean something. For a search
-    // result the lanes are fiction, and expensive fiction: 200 commits
-    // matching an author in a 600-commit repository produced 200 lanes and
-    // 19,900 edges, one SVG path each — enough to take the renderer down,
-    // and it grows quadratically with the number of matches.
-    const contiguous = isContiguousHistory(commits)
-    const graph = contiguous ? buildGraph(commits) : []
-    return { commits, graph, graphWidth: contiguous ? graphWidth(graph) : 0, contiguous }
+    // A lane graph draws parent-child edges, so it only means anything when
+    // the list is a *complete walk* of whatever was selected. Two things skip
+    // commits: a search, and a path filter. Everything else — a revision
+    // range, an exclusive range, a row limit — still walks completely, and the
+    // lanes simply run off the bottom edge where the walk stopped. That is
+    // what a paged history is supposed to look like.
+    //
+    // Decided from the request rather than by looking for missing parents:
+    // ordinary history has those too, one per branch still being walked at the
+    // cutoff. A repository with thirty open branches produced twenty-nine of
+    // them and lost its graph entirely.
+    const skipsCommits =
+      req.search !== undefined && Object.keys(req.search).length > 0
+        ? true
+        : (req.paths?.length ?? 0) > 0
+
+    const graph = skipsCommits ? [] : buildGraph(commits)
+    return {
+      commits,
+      graph,
+      graphWidth: skipsCommits ? 0 : graphWidth(graph),
+      contiguous: !skipsCommits
+    }
   })
 
   handle(IPC.commitDetail, (cwd: string, hash: string) => getCommitDetail(cwd, hash))

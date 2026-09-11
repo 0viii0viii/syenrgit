@@ -146,13 +146,65 @@ const g = (...a: string[]) => execFileSync('git', a, { cwd, encoding: 'utf8' }).
   }
 }
 
-// --- the graph must not push the list off screen ---------------------------
+// --- when the graph is drawn, and when it is not --------------------------
 {
-  const { buildGraph, graphWidth, isContiguousHistory } = await import('@main/git/graph.js')
+  const { buildGraph, graphWidth } = await import('@main/git/graph.js')
+  const { fitLanes } = await import('@shared/graphLayout.js')
 
-  // Many commits by several authors, so a search matches a scattered subset —
-  // the shape that produced a lane per match and a 2806px indent, hiding
-  // every row off the right edge of the pane.
+  // The tokens the renderer measures, as authored in git.css.
+  const METRICS = { row: 28, lane: 14, node: 8, stroke: 2, maxWidth: 176 }
+
+  // Ordinary history truncated mid-walk: every branch still being walked
+  // leaves a commit whose parent is not loaded. That is a frontier, not a
+  // hole, and the graph must survive it — a repository with thirty open
+  // branches once lost its graph entirely to this.
+  const many = mkdtempSync(join(tmpdir(), 'branches-'))
+  execFileSync('git', ['init', '-q', '-b', 'main', many])
+  // Commits get increasing dates: with identical timestamps git's date-ordered
+  // walk breaks ties arbitrarily, and which branch tips land inside a truncated
+  // window becomes a coin flip.
+  let clock = 1700000000
+  const gm = (...a: string[]) =>
+    execFileSync('git', a, {
+      cwd: many,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        GIT_AUTHOR_DATE: `${(clock += 60)} +0000`,
+        GIT_COMMITTER_DATE: `${clock} +0000`
+      }
+    })
+  gm('config', 'user.name', 'T'); gm('config', 'user.email', 't@t.t')
+  gm('config', 'core.autocrlf', 'false')
+  writeFileSync(join(many, 'seed.txt'), 'x\n'); gm('add', '-A'); gm('commit', '-qm', 'root')
+  for (let i = 0; i < 60; i++) {
+    writeFileSync(join(many, `f${i % 5}.txt`), `${i}\n`)
+    gm('add', '-A'); gm('commit', '-qm', `trunk ${i}`)
+    if (i % 6 === 0) gm('branch', `wip/${i}`)
+  }
+  for (let i = 0; i < 60; i += 6) {
+    gm('checkout', '-q', `wip/${i}`)
+    for (let j = 0; j < 4; j++) {
+      writeFileSync(join(many, `w${i}_${j}.txt`), 'x\n')
+      gm('add', '-A'); gm('commit', '-qm', `wip ${i}.${j}`)
+    }
+  }
+  gm('checkout', '-q', 'main')
+
+  const truncated = await getLog({ cwd: many, limit: 40 })
+  const present = new Set(truncated.map(c => c.hash))
+  const lastIndex = truncated.length - 1
+  const midFrontier = truncated.filter(
+    (c, i) => i !== lastIndex && c.parents.some(p => !present.has(p))
+  ).length
+  ok('a truncated walk leaves commits with unloaded parents above the last row',
+    midFrontier > 0, `${midFrontier} of ${truncated.length}`)
+  ok('  and its graph is still drawn', graphWidth(buildGraph(truncated)) > 0,
+    `${graphWidth(buildGraph(truncated))} lanes`)
+  rmSync(many, { recursive: true, force: true })
+
+  // A search, by contrast, opens a lane per match: the parents are missing
+  // because they did not match, not because the walk stopped.
   const wide = mkdtempSync(join(tmpdir(), 'wide-'))
   execFileSync('git', ['init', '-q', '-b', 'main', wide])
   const authors = ['Ada', 'Grace', 'Alan']
@@ -163,53 +215,34 @@ const g = (...a: string[]) => execFileSync('git', a, { cwd, encoding: 'utf8' }).
     execFileSync('git', ['-c', `user.name=${who}`, '-c', `user.email=${who}@x.com`,
       'commit', '-qm', `commit ${i}`], { cwd: wide })
   }
-
   const everything = await getLog({ cwd: wide })
   ok('unfiltered history stays one lane', graphWidth(buildGraph(everything)) === 1,
     String(graphWidth(buildGraph(everything))))
 
   const scattered = await getLog({ cwd: wide, search: { author: 'Grace' } })
   ok('a scattered search matches many commits', scattered.length === 30, String(scattered.length))
-  ok('  and is not contiguous', !isContiguousHistory(scattered))
-  // The number that mattered: one lane per match, each pushing the text right.
-  ok('  so its graph would open a lane per commit',
-    graphWidth(buildGraph(scattered)) >= scattered.length,
-    String(graphWidth(buildGraph(scattered))))
-
+  ok('  and would open a lane per commit, which is why a search draws none',
+    graphWidth(buildGraph(scattered)) > 20,
+    `${graphWidth(buildGraph(scattered))} lanes`)
   rmSync(wide, { recursive: true, force: true })
-}
 
-// --- a search result must not claim to be a graph ---------------------------
-{
-  const { buildGraph, graphWidth, isContiguousHistory } = await import('@main/git/graph.js')
-
-  const all = await getLog({ cwd })
-  ok('ordinary history is contiguous', isContiguousHistory(all))
-  ok('  and its graph is narrow', graphWidth(buildGraph(all)) <= 2,
-    String(graphWidth(buildGraph(all))))
-
-  const matched = await getLog({ cwd, search: { author: 'Grace' } })
-  ok('a search result is not contiguous', !isContiguousHistory(matched))
-
-  // The tell: with parents missing, lanes open and never close, so the graph
-  // grows a column per hole.
-  const holes = new Set(matched.map(c => c.hash))
-  const missing = matched
-    .slice(0, -1)
-    .reduce((n, c) => n + c.parents.filter(p => !holes.has(p)).length, 0)
-  ok('  because its parents are mostly absent', missing > 0, `${missing} missing`)
-  ok('  and drawing it would invent lanes',
-    graphWidth(buildGraph(matched)) > graphWidth(buildGraph(all)),
-    `${graphWidth(buildGraph(matched))} vs ${graphWidth(buildGraph(all))}`)
-
-  // A single commit, and an empty result, are trivially fine.
-  ok('one commit is contiguous', isContiguousHistory(all.slice(0, 1)))
-  ok('no commits is contiguous', isContiguousHistory([]))
-
-  // The last commit's parents are always beyond the walk, and that is not a
-  // hole — otherwise every page of ordinary history would be rejected.
-  ok('a truncated page is still contiguous',
-    isContiguousHistory(await getLog({ cwd, limit: 5 })))
+  // Whatever the lane count, the column stays inside its budget: that, not
+  // hiding the graph, is what keeps the commit subjects on screen.
+  for (const lanes of [0, 1, 3, 12, 31, 200]) {
+    const fit = fitLanes(METRICS, lanes)
+    ok(`  ${lanes} lanes fit the column budget`,
+      fit.width <= METRICS.maxWidth + 0.001,
+      `${fit.width.toFixed(1)}px of ${METRICS.maxWidth}px`)
+    ok(`  ${lanes} lanes keep a visible node inside its lane`,
+      fit.node >= 3 && fit.node <= fit.lane,
+      `node ${fit.node.toFixed(1)}px in a ${fit.lane.toFixed(1)}px lane`)
+    ok(`  ${lanes} lanes stay legible or are clipped, never smeared`,
+      fit.lane >= 4 && fit.visibleLanes >= 1,
+      `${fit.lane.toFixed(1)}px lanes, ${fit.visibleLanes} of ${lanes} shown`)
+  }
+  ok('  an ordinary graph is untouched by the budget',
+    fitLanes(METRICS, 3).lane === METRICS.lane && fitLanes(METRICS, 3).node === METRICS.node,
+    `${fitLanes(METRICS, 3).lane}px lanes`)
 }
 
 rmSync(cwd, { recursive: true, force: true })

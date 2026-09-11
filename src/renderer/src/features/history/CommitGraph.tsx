@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { laneColorVar } from '@/lib/measure'
-import type { GraphMetrics } from './useGraphMetrics'
+import { fitLanes, type GraphMetrics } from './useGraphMetrics'
 import type { GraphRow } from '@shared/git'
 
 interface Props {
@@ -26,16 +26,24 @@ interface Props {
  * line arriving into it.
  */
 export function CommitGraph({ rows, width, metrics, from, to }: Props): React.JSX.Element {
-  const { row: ROW, lane: LANE, node: NODE, stroke: STROKE } = metrics
+  const ROW = metrics.row
+  const STROKE = metrics.stroke
+  // Spacing is derived from how many lanes there actually are, so a wide graph
+  // tightens rather than pushing the commit subjects off screen.
+  const { lane: LANE, node: NODE, width: COLUMN } = fitLanes(metrics, width)
 
-  const laneX = (lane: number): number => lane * LANE + LANE / 2
+  // A lane beyond the column is pinned to its edge rather than drawn outside
+  // it, so a commit in a clipped lane still shows a node on its own row.
+  const laneX = (lane: number): number =>
+    Math.min(lane * LANE + LANE / 2, COLUMN - NODE / 2 - STROKE / 2)
   const rowY = (index: number): number => index * ROW + ROW / 2
 
   const edgeStart = Math.max(0, from - 1)
   const edgeEnd = Math.min(rows.length - 1, to)
 
   const paths = useMemo(() => {
-    const x = (lane: number): number => lane * LANE + LANE / 2
+    const x = (lane: number): number =>
+      Math.min(lane * LANE + LANE / 2, COLUMN - NODE / 2 - STROKE / 2)
     const y = (index: number): number => index * ROW + ROW / 2
 
     const out: { d: string; color: string; key: string }[] = []
@@ -57,7 +65,7 @@ export function CommitGraph({ rows, width, metrics, from, to }: Props): React.JS
       }
     }
     return out
-  }, [rows, ROW, LANE, edgeStart, edgeEnd])
+  }, [rows, ROW, LANE, NODE, COLUMN, STROKE, edgeStart, edgeEnd])
 
   const nodes = useMemo(() => {
     // Carry the index alongside the row: looking it up per node with indexOf
@@ -73,7 +81,7 @@ export function CommitGraph({ rows, width, metrics, from, to }: Props): React.JS
   return (
     <svg
       className="pointer-events-none absolute left-0 top-0"
-      width={Math.max(width, 1) * LANE}
+      width={COLUMN}
       height={rows.length * ROW}
       aria-hidden="true"
     >

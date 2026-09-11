@@ -114,6 +114,10 @@
 
   --graph-node-size:    0.5rem;
   --graph-lane-width:   0.875rem;
+  /* The graph never takes more of the row than this. Past it the lanes are
+     spaced tighter rather than the column growing, because a column that grows
+     pushes the commit subjects off the right edge. */
+  --graph-max-width:    11rem;
   --graph-stroke-width: 0.1125rem;
   --graph-merge-node-ring: var(--surface-sunken);
 }
