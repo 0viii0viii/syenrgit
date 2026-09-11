@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { TitleBar } from '@/components/layout/TitleBar'
 import { StatusBar } from '@/components/layout/StatusBar'
+import { Toaster } from '@/components/layout/Toaster'
 import { RefTree } from '@/components/layout/RefTree'
 import { RepoTabs } from '@/components/layout/RepoTabs'
 import { ChangesPanel } from '@/features/changes/ChangesPanel'
@@ -152,6 +153,7 @@ export function App(): React.JSX.Element {
       <TitleBar />
       <main className="min-h-0 flex-1">{root ? <Workspace /> : <EmptyState />}</main>
       <StatusBar />
+      <Toaster />
       <ConflictsDialog />
       <MergeDialog />
     </div>

@@ -1,4 +1,4 @@
-import { AlertTriangle, Check } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from './ThemeToggle'
 import { UpdateBadge } from './UpdateBadge'
@@ -21,19 +21,14 @@ const ABORTABLE = new Set<RepoOperation>(['merge', 'rebase', 'cherry-pick', 'rev
 export function StatusBar(): React.JSX.Element {
   const root = useRepo((s) => s.root)
   const status = useRepo((s) => s.status)
-  const repoError = useRepo((s) => s.error)
   const busy = useActions((s) => s.busy)
-  const actionError = useActions((s) => s.error)
-  const notice = useActions((s) => s.notice)
   const abort = useActions((s) => s.abort)
   const rebaseStep = useActions((s) => s.rebaseStep)
   const sequencerStep = useActions((s) => s.sequencerStep)
-  const clear = useActions((s) => s.clear)
 
   const operation = status?.operation ?? 'none'
   const label = OPERATION_LABEL[operation]
   const conflicts = status?.files.filter((f) => f.conflicted).length ?? 0
-  const error = actionError ?? repoError
 
   return (
     <footer className="flex h-statusbar shrink-0 items-center gap-2 border-t border-border-subtle bg-surface-app px-2 text-2xs text-content-tertiary">
@@ -114,25 +109,9 @@ export function StatusBar(): React.JSX.Element {
         </>
       )}
 
-      {error ? (
-        <button
-          type="button"
-          onClick={clear}
-          title={error}
-          className="min-w-0 truncate text-left text-danger-content hover:underline"
-        >
-          {error}
-        </button>
-      ) : notice ? (
-        <button
-          type="button"
-          onClick={clear}
-          className="flex min-w-0 items-center gap-1 truncate text-left text-content-secondary hover:underline"
-        >
-          <Check className="size-3 shrink-0 text-success-content" />
-          {notice}
-        </button>
-      ) : null}
+      {/* Results are toasts now. A line of grey text in the corner furthest
+          from the cursor was read by nobody, and was overwritten by the next
+          action whether or not it had been. */}
 
       <div className="flex-1" />
       <UpdateBadge />
