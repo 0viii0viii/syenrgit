@@ -1,14 +1,12 @@
 import { useEffect } from 'react'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { TitleBar } from '@/components/layout/TitleBar'
 import { StatusBar } from '@/components/layout/StatusBar'
 import { RefTree } from '@/components/layout/RefTree'
 import { RepoTabs } from '@/components/layout/RepoTabs'
-import { ChangeList } from '@/features/changes/ChangeList'
-import { CommitBox } from '@/features/changes/CommitBox'
+import { ChangesPanel } from '@/features/changes/ChangesPanel'
 import { DiffPanel } from '@/features/diff/DiffView'
 import { StagingDiff } from '@/features/diff/StagingDiff'
 import { CommitList } from '@/features/history/CommitList'
@@ -49,65 +47,56 @@ function HistoryPane(): React.JSX.Element {
 }
 
 function Workspace(): React.JSX.Element {
-  const tab = useRepo((s) => s.tab)
-  const setTab = useRepo((s) => s.setTab)
+  const focus = useRepo((s) => s.focus)
   const mergePath = useMerge((s) => s.path)
 
   return (
     <ResizablePanelGroup orientation="horizontal">
-      <ResizablePanel defaultSize="18%" minSize="12%" maxSize="32%">
-        <ErrorBoundary label="The ref list">
-          <RefTree />
+      {/* Refs above, the working tree below. Both are "where am I and what
+          have I got", and neither needs the width that history does. */}
+      <ResizablePanel defaultSize="20%" minSize="14%" maxSize="34%">
+        <ResizablePanelGroup orientation="vertical">
+          <ResizablePanel defaultSize="50%" minSize="15%">
+            <ErrorBoundary label="The ref list">
+              <RefTree />
+            </ErrorBoundary>
+          </ResizablePanel>
+          <ResizableHandle />
+          <ResizablePanel defaultSize="50%" minSize="20%">
+            <ErrorBoundary label="The change list">
+              <ChangesPanel />
+            </ErrorBoundary>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </ResizablePanel>
+      <ResizableHandle />
+
+      <ResizablePanel defaultSize="36%" minSize="22%">
+        <ErrorBoundary label="The history">
+          <div className="flex h-full min-h-0 flex-col">
+            <CommitSearchBar />
+            <HistoryFilter />
+            <div className="min-h-0 flex-1">
+              <CommitList />
+            </div>
+          </div>
         </ErrorBoundary>
       </ResizablePanel>
       <ResizableHandle />
 
-      <ResizablePanel defaultSize="38%" minSize="22%">
-        <Tabs
-          value={tab}
-          onValueChange={(v) => setTab(v as 'changes' | 'history')}
-          className="flex h-full min-h-0 flex-col gap-0"
-        >
-          <TabsList className="h-7 w-full shrink-0 justify-start rounded-none border-b border-border-subtle bg-surface-app p-0">
-            <TabsTrigger value="changes" className="h-7 rounded-none px-3 text-xs">
-              Changes
-            </TabsTrigger>
-            <TabsTrigger value="history" className="h-7 rounded-none px-3 text-xs">
-              History
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="changes" className="flex min-h-0 flex-1 flex-col">
-            <ErrorBoundary label="The change list">
-              <div className="min-h-0 flex-1">
-                <ChangeList />
-              </div>
-              <CommitBox />
-            </ErrorBoundary>
-          </TabsContent>
-          <TabsContent value="history" className="flex min-h-0 flex-1 flex-col">
-            <ErrorBoundary label="The history">
-              <CommitSearchBar />
-              <HistoryFilter />
-              <div className="min-h-0 flex-1">
-                <CommitList />
-              </div>
-            </ErrorBoundary>
-          </TabsContent>
-        </Tabs>
-      </ResizablePanel>
-      <ResizableHandle />
-
+      {/* One detail pane, shared. It shows whichever of the two lists you last
+          selected in, so there is no second diff view to keep in sync. */}
       <ResizablePanel defaultSize="44%">
         <ErrorBoundary label="This pane">
-        {tab === 'changes' ? (
-          mergePath ? (
-            <MergeEditor />
+          {focus === 'changes' ? (
+            mergePath ? (
+              <MergeEditor />
+            ) : (
+              <StagingDiff />
+            )
           ) : (
-            <StagingDiff />
-          )
-        ) : (
-          <HistoryPane />
-        )}
+            <HistoryPane />
+          )}
         </ErrorBoundary>
       </ResizablePanel>
     </ResizablePanelGroup>

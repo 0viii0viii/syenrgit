@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { CommitDetail, CommitSummary, FileDiff, GraphRow, RefList, RepoStatus } from '@shared/git'
 import { useHistory } from './history'
 import { useMerge } from './merge'
-import { useRepo, type PaneSelection, type WorkspaceTab } from './repo'
+import { useRepo, type PaneSelection, type WorkspacePane } from './repo'
 
 export interface RepoTab {
   root: string
@@ -20,7 +20,7 @@ interface Snapshot {
   status: RepoStatus | null
   selection: PaneSelection
   diff: FileDiff | null
-  tab: WorkspaceTab
+  focus: WorkspacePane
   commits: CommitSummary[]
   graph: GraphRow[]
   graphWidth: number
@@ -82,7 +82,7 @@ function capture(): Snapshot {
     status: repo.status,
     selection: repo.selection,
     diff: repo.diff,
-    tab: repo.tab,
+    focus: repo.focus,
     commits: history.commits,
     graph: history.graph,
     graphWidth: history.graphWidth,
@@ -103,7 +103,7 @@ function apply(root: string, snapshot: Snapshot): void {
     status: snapshot.status,
     selection: snapshot.selection,
     diff: snapshot.diff,
-    tab: snapshot.tab,
+    focus: snapshot.focus,
     error: null
   })
   useHistory.setState({
@@ -205,15 +205,15 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     }
 
     set({ activeRoot: root })
-    // `tab` is per-repository state that snapshots restore, so a repository
+    // `focus` is per-repository state that snapshots restore, so a repository
     // being opened for the first time starts at the default rather than
-    // inheriting whatever the previously active tab happened to be showing.
+    // inheriting whatever the previously active repository happened to show.
     useRepo.setState({
       root,
       status: null,
       selection: null,
       diff: null,
-      tab: 'changes',
+      focus: 'changes',
       error: null
     })
     useHistory.getState().reset()

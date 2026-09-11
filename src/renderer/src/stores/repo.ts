@@ -5,7 +5,14 @@ import { useHistory } from './history'
 import { useMerge } from './merge'
 
 export type PaneSelection = { path: string; staged: boolean } | null
-export type WorkspaceTab = 'changes' | 'history'
+/**
+ * Which of the two left-hand panes owns the right-hand side.
+ *
+ * Both panes are always visible, so this is not a tab: it records what you
+ * last reached for, and the detail pane follows it. Selecting a commit shows
+ * that commit; selecting a changed file shows that file's staging diff.
+ */
+export type WorkspacePane = 'changes' | 'history'
 
 interface RepoState {
   root: string | null
@@ -14,9 +21,9 @@ interface RepoState {
   diff: FileDiff | null
   loading: boolean
   error: string | null
-  tab: WorkspaceTab
+  focus: WorkspacePane
 
-  setTab: (tab: WorkspaceTab) => void
+  setFocus: (focus: WorkspacePane) => void
   openRepo: () => Promise<void>
   setRoot: (root: string) => Promise<void>
   refresh: () => Promise<void>
@@ -34,9 +41,9 @@ export const useRepo = create<RepoState>((set, get) => ({
   diff: null,
   loading: false,
   error: null,
-  tab: 'changes',
+  focus: 'changes',
 
-  setTab: (tab) => set({ tab }),
+  setFocus: (focus) => set({ focus }),
 
   openRepo: async () => {
     const root = await window.api.openRepoDialog()
@@ -70,7 +77,9 @@ export const useRepo = create<RepoState>((set, get) => ({
 
   select: async (selection) => {
     const { root, status } = get()
-    set({ selection })
+    // Picking a changed file is the request to look at it, so the shared
+    // detail pane switches away from whatever commit it was showing.
+    set({ selection, focus: 'changes' })
     if (!root || !selection) {
       set({ diff: null })
       useMerge.getState().close()

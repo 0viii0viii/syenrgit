@@ -41,7 +41,10 @@ function buildRows(files: FileEntry[]): Row[] {
 
   push('Conflicts', conflicted, false)
   push('Staged', staged, true)
-  push('Changes', unstaged, false)
+  // Not git's own "Changes not staged for commit": the pane around this is
+  // called Changes now, and two things by that name in one column is one too
+  // many. Named for what separates it from the group above.
+  push('Unstaged', unstaged, false)
   return rows
 }
 
@@ -65,6 +68,7 @@ function FileRow({
   const unstage = useRepo((s) => s.unstage)
   const discard = useRepo((s) => s.discard)
   const busy = useActions((s) => s.busy)
+  const focused = useRepo((s) => s.focus) === 'changes'
 
   const row = (
     <div
@@ -74,7 +78,13 @@ function FileRow({
       className={cn(
         'group flex h-full cursor-default items-center gap-1.5 px-2',
         'hover:bg-surface-hover',
-        selected && 'bg-surface-selected hover:bg-surface-selected'
+        // Dimmed when the detail pane is showing a commit instead: both lists
+        // remember a selection, and two that look equally live is a question
+        // about which one the pane is answering.
+        selected &&
+          (focused
+            ? 'bg-surface-selected hover:bg-surface-selected'
+            : 'bg-surface-active hover:bg-surface-active')
       )}
     >
       <span

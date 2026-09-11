@@ -141,7 +141,7 @@ function useRefFilter(refName: string): {
   onClick: (e: React.MouseEvent) => void
 } {
   const root = useRepo((s) => s.root)
-  const setTab = useRepo((s) => s.setTab)
+  const setFocus = useRepo((s) => s.setFocus)
   const filter = useHistory((s) => s.filter)
   const toggleRef = useHistory((s) => s.toggleRef)
 
@@ -151,7 +151,7 @@ function useRefFilter(refName: string): {
       if (!root) return
       // Filtering only affects history, so show it — otherwise the click looks
       // like it did nothing.
-      setTab('history')
+      setFocus('history')
       void toggleRef(root, refName, e.metaKey || e.ctrlKey)
     }
   }

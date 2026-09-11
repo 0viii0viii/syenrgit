@@ -37,6 +37,8 @@ export function CommitList(): React.JSX.Element {
   const searching = useHistory((s) => s.searching)
   const contiguous = useHistory((s) => s.contiguous)
 
+  const setFocus = useRepo((s) => s.setFocus)
+  const focused = useRepo((s) => s.focus) === 'history'
   const status = useRepo((s) => s.status)
   const busy = useActions((s) => s.busy)
   const sequencer = useActions((s) => s.sequencer)
@@ -68,12 +70,22 @@ export function CommitList(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, commits])
 
+  /**
+   * The one way a commit gets opened, so the mouse and the arrow keys cannot
+   * disagree about whether the detail pane is showing this commit.
+   */
+  const open = (hash: string): void => {
+    if (!root) return
+    setFocus('history')
+    void selectCommit(root, hash)
+  }
+
   const move = (delta: number): void => {
     if (!root || commits.length === 0) return
     const current = commits.findIndex((c) => c.hash === selected)
     const next = current === -1 ? 0 : Math.min(commits.length - 1, Math.max(0, current + delta))
     const target = commits[next]
-    if (target) void selectCommit(root, target.hash)
+    if (target) open(target.hash)
   }
 
   if (commits.length === 0) {
@@ -153,11 +165,16 @@ export function CommitList(): React.JSX.Element {
               data-index={item.index}
               role="option"
               aria-selected={commit.hash === selected}
-              onClick={() => root && void selectCommit(root, commit.hash)}
+              onClick={() => open(commit.hash)}
               className={cn(
                 'absolute left-0 top-0 flex w-full items-center gap-2 pr-2 text-xs',
                 'cursor-default hover:bg-surface-hover',
-                commit.hash === selected && 'bg-surface-selected hover:bg-surface-selected'
+                // See ChangeList: the unfocused list keeps its selection but
+                // stops claiming to be what the detail pane is showing.
+                commit.hash === selected &&
+                  (focused
+                    ? 'bg-surface-selected hover:bg-surface-selected'
+                    : 'bg-surface-active hover:bg-surface-active')
               )}
               style={{
                 height: item.size,
