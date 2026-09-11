@@ -54,7 +54,7 @@ function Workspace(): React.JSX.Element {
     <ResizablePanelGroup orientation="horizontal">
       {/* Refs above, the working tree below. Both are "where am I and what
           have I got", and neither needs the width that history does. */}
-      <ResizablePanel defaultSize="20%" minSize="14%" maxSize="34%">
+      <ResizablePanel defaultSize="16%" minSize="12%" maxSize="30%">
         <ResizablePanelGroup orientation="vertical">
           <ResizablePanel defaultSize="50%" minSize="15%">
             <ErrorBoundary label="The ref list">
@@ -71,7 +71,11 @@ function Workspace(): React.JSX.Element {
       </ResizablePanel>
       <ResizableHandle />
 
-      <ResizablePanel defaultSize="36%" minSize="22%">
+      {/* The widest pane by default. History is what the app is for, and a
+          commit row has to fit refs, a subject, an author and a date before
+          the graph even starts — at a third of the window the subject was the
+          first thing to be truncated. */}
+      <ResizablePanel defaultSize="50%" minSize="28%">
         <ErrorBoundary label="The history">
           <div className="flex h-full min-h-0 flex-col">
             <CommitSearchBar />
@@ -86,7 +90,7 @@ function Workspace(): React.JSX.Element {
 
       {/* One detail pane, shared. It shows whichever of the two lists you last
           selected in, so there is no second diff view to keep in sync. */}
-      <ResizablePanel defaultSize="44%">
+      <ResizablePanel defaultSize="34%" minSize="22%">
         <ErrorBoundary label="This pane">
           {focus === 'changes' ? (
             mergePath ? (
