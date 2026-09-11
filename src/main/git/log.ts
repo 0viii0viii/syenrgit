@@ -1,5 +1,5 @@
 import { git, gitLine } from './exec.js'
-import type { CommitDetail, CommitSummary, RefBadge } from '@shared/git.js'
+import type { CommitAuthor, CommitDetail, CommitSummary, RefBadge } from '@shared/git.js'
 
 /**
  * Unit and record separators. Commit subjects and bodies contain newlines and
@@ -357,4 +357,43 @@ function parseNameStatus(raw: string): CommitDetail['files'] {
   }
 
   return files
+}
+
+/**
+ * How far back the author list looks.
+ *
+ * Building it means walking commits, and on a large repository walking all of
+ * them to populate a dropdown is work the user did not ask for. Twenty
+ * thousand covers the contributor set of any repository in practice; anyone
+ * older than that is still reachable by typing `author:` into the search box,
+ * which walks the whole history.
+ */
+const AUTHOR_SCAN_LIMIT = 20000
+
+/**
+ * Everyone who has authored a commit, most prolific first.
+ *
+ * Keyed by email rather than name: the same person commits as "Ada" and
+ * "Ada Lovelace" from one address far more often than two people share one.
+ */
+export async function listAuthors(cwd: string): Promise<CommitAuthor[]> {
+  const raw = await git(
+    ['log', '--all', '--no-merges', `--format=%an${US}%ae`, `--max-count=${AUTHOR_SCAN_LIMIT}`],
+    { cwd }
+  )
+
+  const byEmail = new Map<string, CommitAuthor>()
+  for (const line of raw.split('\n')) {
+    if (!line) continue
+    const [name, email] = line.split(US)
+    if (!email) continue
+    const key = email.toLowerCase()
+    const seen = byEmail.get(key)
+    if (seen) seen.commits += 1
+    else byEmail.set(key, { name: name ?? email, email, commits: 1 })
+  }
+
+  return [...byEmail.values()].sort(
+    (a, b) => b.commits - a.commits || a.name.localeCompare(b.name)
+  )
 }

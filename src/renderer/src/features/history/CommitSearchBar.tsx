@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { useHistory } from '@/stores/history'
 import { useRepo } from '@/stores/repo'
 import { parseQuery, queryFromSearch } from './parse-query'
+import { AuthorFilter } from './AuthorFilter'
 
 /** Debounce, so a walk is not spawned on every keystroke. */
 const SETTLE_MS = 300
@@ -51,6 +52,18 @@ export function CommitSearchBar(): React.JSX.Element {
           'h-5 min-w-0 flex-1 border-0 bg-transparent px-0 text-2xs',
           'shadow-none focus-visible:ring-0'
         )}
+      />
+
+      {/* Rewritten through the serializer rather than spliced into the text,
+          so picking a person and typing `author:` cannot disagree. */}
+      <AuthorFilter
+        value={parseQuery(text).author}
+        onSelect={(email) => {
+          const next = parseQuery(text)
+          if (email) next.author = email
+          else delete next.author
+          setText(queryFromSearch(next))
+        }}
       />
 
       {searching && (

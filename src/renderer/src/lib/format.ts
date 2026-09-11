@@ -19,6 +19,20 @@ export function relativeTime(unixSeconds: number, now = Date.now() / 1000): stri
   })
 }
 
+/**
+ * The timestamp shown in the history list.
+ *
+ * Absolute, not relative: scanning history is a matter of placing commits
+ * against each other and against dates you remember, and "3d" answers neither.
+ * Every row is the same shape so the column reads as a column, and the format
+ * is numeric rather than locale-worded so it stays narrow in every language.
+ */
+export function commitTime(unixSeconds: number): string {
+  const d = new Date(unixSeconds * 1000)
+  const p = (n: number): string => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
 export function absoluteTime(unixSeconds: number): string {
   return new Date(unixSeconds * 1000).toLocaleString(undefined, {
     dateStyle: 'medium',

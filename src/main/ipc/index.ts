@@ -34,7 +34,7 @@ import { git, GitError } from '../git/exec.js'
 import { discoverRepo } from '../git/repo.js'
 import { getStatus } from '../git/status.js'
 import { getCommitFileDiff, getFileDiff, getUntrackedDiff } from '../git/diff.js'
-import { getCommitDetail, getLog } from '../git/log.js'
+import { getCommitDetail, getLog, listAuthors } from '../git/log.js'
 import { buildGraph, graphWidth } from '../git/graph.js'
 import { listRefs } from '../git/refs.js'
 import { getMergeDocument } from '../git/merge.js'
@@ -280,6 +280,8 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
       ...(req.origPath !== undefined ? { origPath: req.origPath } : {})
     })
   )
+
+  handle(IPC.logAuthors, (cwd: string) => listAuthors(cwd))
 
   handle(IPC.refsList, (cwd: string) => listRefs(cwd))
 

@@ -55,6 +55,7 @@ const api: RendererApi = {
   unstage: (req: StageRequest) => ipcRenderer.invoke(IPC.unstageFiles, req),
   log: (req: LogPageRequest) => ipcRenderer.invoke(IPC.logList, req),
   commitDetail: (cwd, hash) => ipcRenderer.invoke(IPC.commitDetail, cwd, hash),
+  commitAuthors: (cwd) => ipcRenderer.invoke(IPC.logAuthors, cwd),
   commitDiff: (req: CommitDiffRequest) => ipcRenderer.invoke(IPC.commitDiff, req),
   refs: (cwd) => ipcRenderer.invoke(IPC.refsList, cwd),
   checkout: (cwd, branch) => ipcRenderer.invoke(IPC.actionCheckout, cwd, branch),

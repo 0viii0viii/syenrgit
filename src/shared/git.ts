@@ -249,3 +249,11 @@ export interface MergeDocument {
   chunks: MergeChunk[]
   conflictCount: number
 }
+
+/** A person who has authored commits in the repository. */
+export interface CommitAuthor {
+  name: string
+  email: string
+  /** How many commits they authored within the scanned window. */
+  commits: number
+}

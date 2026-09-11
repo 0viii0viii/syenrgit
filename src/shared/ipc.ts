@@ -1,4 +1,5 @@
 import type {
+  CommitAuthor,
   CommitDetail,
   CommitSummary,
   ConflictStages,
@@ -31,6 +32,7 @@ export const IPC = {
   unstageFiles: 'index:unstage',
   logList: 'log:list',
   commitDetail: 'log:detail',
+  logAuthors: 'log:authors',
   refsList: 'refs:list',
   commitDiff: 'log:diff',
   actionCheckout: 'action:checkout',
@@ -445,6 +447,8 @@ export interface RendererApi {
   unstage(req: StageRequest): Promise<void>
   log(req: LogPageRequest): Promise<LogPage>
   commitDetail(cwd: string, hash: string): Promise<CommitDetail>
+  /** Everyone who has authored a commit here, most prolific first. */
+  commitAuthors(cwd: string): Promise<CommitAuthor[]>
   commitDiff(req: CommitDiffRequest): Promise<FileDiff>
   refs(cwd: string): Promise<RefList>
   checkout(cwd: string, branch: string): Promise<void>

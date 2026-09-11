@@ -8,7 +8,7 @@ import {
   ContextMenuTrigger
 } from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
-import { relativeTime } from '@/lib/format'
+import { absoluteTime, commitTime } from '@/lib/format'
 import { useHistory } from '@/stores/history'
 import { useActions } from '@/stores/actions'
 import { useRepo } from '@/stores/repo'
@@ -133,8 +133,14 @@ export function CommitList(): React.JSX.Element {
       }}
     >
       <div className="relative" style={{ height: virtualizer.getTotalSize() }}>
+        {/* Above the rows, not behind them: a row background is opaque, so at
+            the default stacking order selecting or hovering a commit painted
+            over its own lanes and the graph appeared to vanish. The SVG takes
+            no pointer events, so raising it costs no clicks. */}
         {showGraph && (
-          <CommitGraph rows={graph} width={width} metrics={metrics} from={first} to={last} />
+          <div className="pointer-events-none absolute left-0 top-0 z-10">
+            <CommitGraph rows={graph} width={width} metrics={metrics} from={first} to={last} />
+          </div>
         )}
 
         {items.map((item) => {
@@ -169,11 +175,15 @@ export function CommitList(): React.JSX.Element {
               >
                 {commit.authorName}
               </span>
-              <span className="w-14 shrink-0 text-right font-mono text-2xs text-content-tertiary">
-                {commit.shortHash}
-              </span>
-              <span className="w-10 shrink-0 text-right text-2xs tabular-nums text-content-tertiary">
-                {relativeTime(commit.authorDate)}
+              {/* No commit id here. It identifies a commit you have already
+                  found, which is the detail panel's job; in the list it is
+                  sixteen columns of noise beside the subject that does the
+                  actual identifying. */}
+              <span
+                className="w-timestamp shrink-0 text-right text-2xs tabular-nums text-content-tertiary"
+                title={absoluteTime(commit.authorDate)}
+              >
+                {commitTime(commit.authorDate)}
               </span>
             </div>
           )

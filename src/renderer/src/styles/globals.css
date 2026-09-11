@@ -205,6 +205,8 @@
   --spacing-row: var(--layout-row-height);
   --spacing-row-lg: var(--layout-row-height-lg);
   --spacing-linenum: var(--diff-linenum-width);
+  --spacing-author: var(--layout-author-width);
+  --spacing-timestamp: var(--layout-timestamp-width);
 }
 
 @layer base {

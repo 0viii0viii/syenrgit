@@ -1,6 +1,13 @@
 import { describeError } from '@/lib/errors'
 import { create } from 'zustand'
-import type { CommitDetail, CommitSummary, FileDiff, GraphRow, RefList } from '@shared/git'
+import type {
+  CommitAuthor,
+  CommitDetail,
+  CommitSummary,
+  FileDiff,
+  GraphRow,
+  RefList
+} from '@shared/git'
 import type { CommitSearch } from '@shared/ipc'
 
 interface HistoryState {
@@ -35,8 +42,13 @@ interface HistoryState {
   search: CommitSearch
   /** True while a search is narrowing the list, for the empty state to explain. */
   searching: boolean
+  /** Everyone who has authored a commit here, for the author filter. */
+  authors: CommitAuthor[]
+  /** Which repository `authors` describes, so it is fetched once, not per refresh. */
+  authorsRoot: string | null
 
   load: (root: string) => Promise<void>
+  loadAuthors: (root: string) => Promise<void>
   setSearch: (root: string, search: CommitSearch) => Promise<void>
   clearSearch: (root: string) => Promise<void>
   setFilter: (root: string, refs: string[]) => Promise<void>
@@ -63,7 +75,9 @@ const EMPTY = {
   filter: [],
   exclusive: false,
   search: {},
-  searching: false
+  searching: false,
+  authors: [],
+  authorsRoot: null
 } satisfies Omit<
   HistoryState,
   | 'load'
@@ -75,6 +89,7 @@ const EMPTY = {
   | 'setSearch'
   | 'clearSearch'
   | 'toggleRef'
+  | 'loadAuthors'
 >
 
 export const useHistory = create<HistoryState>((set, get) => ({
@@ -129,6 +144,30 @@ export const useHistory = create<HistoryState>((set, get) => ({
       set({ error: describeError(err) })
     } finally {
       set({ loading: false })
+    }
+  },
+
+  /**
+   * Walking history to populate a dropdown is work the user did not ask for,
+   * so it happens once per repository rather than on every refresh. A new
+   * contributor therefore only appears after a tab switch, which is a fair
+   * trade for not re-walking on every commit.
+   */
+  loadAuthors: async (root) => {
+    if (get().authorsRoot === root) return
+    // Claim the root before walking, not after: it both collapses concurrent
+    // calls for the same repository and lets a slow walk notice that another
+    // repository was opened while it was running, so a stale list cannot land
+    // on top of a newer one with nothing left to trigger a refetch.
+    set({ authorsRoot: root, authors: [] })
+    try {
+      const authors = await window.api.commitAuthors(root)
+      if (get().authorsRoot !== root) return
+      set({ authors })
+    } catch {
+      // A missing author list costs the dropdown its contents and nothing
+      // else — `author:` typed into the box still works.
+      if (get().authorsRoot === root) set({ authors: [] })
     }
   },
 

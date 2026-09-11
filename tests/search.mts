@@ -245,6 +245,37 @@ const g = (...a: string[]) => execFileSync('git', a, { cwd, encoding: 'utf8' }).
     `${fitLanes(METRICS, 3).lane}px lanes`)
 }
 
+// --- who has committed here -----------------------------------------------
+{
+  const { listAuthors } = await import('@main/git/log.js')
+  const people = await listAuthors(cwd)
+
+  ok('every author is listed once', new Set(people.map(a => a.email)).size === people.length,
+    people.map(a => `${a.name}:${a.commits}`).join(' '))
+  ok('  most prolific first',
+    people.every((a, i) => i === 0 || people[i - 1]!.commits >= a.commits),
+    people.map(a => a.commits).join(','))
+  ok('  counts are real commits',
+    people.reduce((n, a) => n + a.commits, 0) > 0,
+    String(people.reduce((n, a) => n + a.commits, 0)))
+
+  // One person, two spellings of their name, one address: the filter has to
+  // offer them once or picking either spelling loses half their work.
+  const two = mkdtempSync(join(tmpdir(), 'sameperson-'))
+  execFileSync('git', ['init', '-q', '-b', 'main', two])
+  for (const [n, i] of [['Ada', 0], ['Ada Lovelace', 1], ['Ada', 2]] as [string, number][]) {
+    writeFileSync(join(two, `f${i}.txt`), 'x\n')
+    execFileSync('git', ['add', '-A'], { cwd: two })
+    execFileSync('git', ['-c', `user.name=${n}`, '-c', 'user.email=ada@x.com',
+      'commit', '-qm', `c${i}`], { cwd: two })
+  }
+  const merged = await listAuthors(two)
+  ok('one address is one person however they spell their name',
+    merged.length === 1 && merged[0]!.commits === 3,
+    merged.map(a => `${a.name}:${a.commits}`).join(' '))
+  rmSync(two, { recursive: true, force: true })
+}
+
 rmSync(cwd, { recursive: true, force: true })
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

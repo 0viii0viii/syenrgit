@@ -63,6 +63,8 @@
   --layout-row-height-lg:   2.25rem;
   --layout-section-header:  1.5rem;
   --layout-author-width:    9rem;
+  /* Wide enough for "2026-09-11 01:47" without wrapping. */
+  --layout-timestamp-width: 7.5rem;
 
   /* -- shadcn/ui contract -------------------------------------------------- */
   --radius: var(--p-radius-md);

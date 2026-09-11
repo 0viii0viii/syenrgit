@@ -22,14 +22,23 @@ const CSS_DIR = 'out/renderer/assets'
  */
 const IGNORED_DIRS = [join('components', 'ui')]
 
-/**
- * Prefixes whose values come from the theme. Layout utilities (`flex`, `w-1/2`)
- * are excluded because they are always built in and would only add noise.
- */
+/** Prefixes whose values come from the theme's color and effect scales. */
 const PREFIXES = [
   'bg', 'text', 'border', 'fill', 'stroke', 'ring', 'outline',
   'shadow', 'divide', 'decoration', 'caret', 'placeholder', 'from', 'via', 'to'
 ]
+
+/**
+ * Sizing prefixes, checked only for *named* values.
+ *
+ * `w-4` and `w-1/2` are built in and would be noise, but `w-author` is a
+ * spacing token like any other and fails the same silent way: the token exists
+ * in the semantic layer, nothing bridges it, and the element renders at its
+ * content width with nobody the wiser. Requiring a letter after the dash
+ * separates the two cases. Built-in keywords (`w-full`, `max-w-md`) pass on
+ * their own merits — if a component uses one, Tailwind emits it.
+ */
+const SIZE_PREFIXES = ['w', 'h', 'size', 'min-w', 'max-w', 'min-h', 'max-h']
 
 function walk(dir) {
   const out = []
@@ -67,14 +76,21 @@ const classPattern = new RegExp(
   `(?<![-\\w])(?:${PREFIXES.join('|')})-[a-z0-9][a-z0-9-]*`,
   'g'
 )
+// Named sizes only: the value must start with a letter, so `w-4` is skipped.
+const sizePattern = new RegExp(
+  `(?<![-\\w])(?:${SIZE_PREFIXES.join('|')})-[a-z][a-z0-9-]*`,
+  'g'
+)
 
 const used = new Map() // class -> Set<file>
 for (const file of walk(SRC)) {
   const source = readFileSync(file, 'utf8')
-  for (const match of source.matchAll(classPattern)) {
-    const name = match[0]
-    if (!used.has(name)) used.set(name, new Set())
-    used.get(name).add(file)
+  for (const pattern of [classPattern, sizePattern]) {
+    for (const match of source.matchAll(pattern)) {
+      const name = match[0]
+      if (!used.has(name)) used.set(name, new Set())
+      used.get(name).add(file)
+    }
   }
 }
 
