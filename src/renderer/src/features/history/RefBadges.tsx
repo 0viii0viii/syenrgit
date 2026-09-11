@@ -2,11 +2,16 @@ import { GitBranch, Tag } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { RefBadge } from '@shared/git'
 
+/**
+ * Only HEAD is filled. Every other ref is an outline, so a commit carrying
+ * four of them stays readable and the branch you are on is findable without
+ * reading any of the names.
+ */
 const BADGE_CLASS: Record<RefBadge['kind'], string> = {
-  head: 'bg-ref-head-bg text-ref-head-content',
-  local: 'bg-ref-local-bg text-ref-local-content',
-  remote: 'bg-ref-remote-bg text-ref-remote-content',
-  tag: 'bg-ref-tag-bg text-ref-tag-content'
+  head: 'border-transparent bg-ref-head-bg text-ref-head-content',
+  local: 'border-ref-local-border text-ref-local-content',
+  remote: 'border-ref-remote-border text-ref-remote-content',
+  tag: 'border-ref-tag-border text-ref-tag-content'
 }
 
 export function RefBadges({ refs }: { refs: RefBadge[] }): React.JSX.Element | null {
@@ -18,7 +23,7 @@ export function RefBadges({ refs }: { refs: RefBadge[] }): React.JSX.Element | n
         <span
           key={`${ref.kind}:${ref.name}`}
           className={cn(
-            'flex max-w-32 items-center gap-0.5 rounded-xs px-1 text-2xs leading-4',
+            'flex max-w-32 items-center gap-1 rounded-xs border px-1 text-2xs leading-4',
             // HEAD's own branch gets the strong treatment; everything else is
             // quiet so a busy row stays scannable.
             ref.isHead ? BADGE_CLASS.head : BADGE_CLASS[ref.kind]

@@ -656,7 +656,7 @@ export function RefTree(): React.JSX.Element {
                     type="button"
                     onClick={() => toggle(row.id)}
                     aria-expanded={expanded.has(row.id)}
-                    className="flex h-full min-w-0 flex-1 items-center gap-1 px-2 text-2xs font-semibold uppercase tracking-wide text-content-tertiary hover:bg-surface-hover"
+                    className="flex h-full min-w-0 flex-1 items-center gap-1.5 px-2 text-2xs font-medium text-content-secondary hover:bg-surface-hover"
                   >
                     <ChevronRight
                       className={cn(
@@ -666,7 +666,7 @@ export function RefTree(): React.JSX.Element {
                     />
                     <row.icon className="size-3" />
                     <span className="flex-1 truncate text-left">{row.title}</span>
-                    <span className="font-normal normal-case">{row.count}</span>
+                    <span className="tabular-nums text-content-tertiary">{row.count}</span>
                   </button>
                   {row.id === 'local' && (
                     <button

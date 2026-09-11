@@ -13,6 +13,7 @@ import type {
   AddWorktreeRequest,
   PatchRequest,
   PatchSelection,
+  ThemeSetting,
   RemoveWorktreeRequest,
   DeleteBranchRequest,
   RebaseRequest,
@@ -71,6 +72,7 @@ import {
 } from '../git/conflict.js'
 import { startWatching, stopWatching } from '../watcher.js'
 import { checkForUpdatesNow, currentUpdateState, installUpdate } from '../updater.js'
+import { currentTheme, resolvedTheme, setTheme } from '../theme.js'
 import {
   addWorktree,
   listWorktrees,
@@ -181,6 +183,12 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
     lockWorktree(cwd, path, reason)
   )
   handle(IPC.worktreeUnlock, (cwd: string, path: string) => unlockWorktree(cwd, path))
+
+  handle(IPC.themeGet, async () => ({ setting: currentTheme(), resolved: resolvedTheme() }))
+  handle(IPC.themeSet, async (setting: ThemeSetting) => {
+    await setTheme(setting)
+    return { setting: currentTheme(), resolved: resolvedTheme() }
+  })
 
   handle(IPC.updateState, async () => currentUpdateState())
   handle(IPC.updateCheck, async () => {

@@ -467,6 +467,52 @@ opt-out collapsed one: remote section ids are derived from remote names, so a
 collapsed-by-default list cannot enumerate them, and a repo with thousands of
 remote-tracking branches should not expand them unasked.
 
+## Design
+
+One rule drives the whole palette: **colour is data**. In a Git client colour
+already means something — this lane, this addition, this conflict, this branch
+— so the chrome is built from near-achromatic ink and paper and every
+saturated hue is reserved for information.
+
+Two consequences fall straight out of it:
+
+- **Graph lanes avoid the green and red bands entirely.** Those two are a claim
+  about content a few hundred pixels away in the diff, and a lane wearing them
+  would read as one. The eight lane hues are indigo, violet, cyan, amber,
+  magenta, steel, teal and bronze, ordered so neighbouring lanes never share a
+  neighbourhood on the wheel.
+- **Only the checked-out branch gets a filled ref badge.** Every other ref is an
+  outline, so a commit carrying four of them stays readable and HEAD is
+  findable without reading any of the names.
+
+The light theme takes its cast from engineering drawing stock rather than plain
+white — paper with a faint cool tint, ink that is a deep navy-black rather than
+neutral grey, rules in blue-grey. Dark is the same material after dusk: a deep
+slate rather than a void, which keeps the lanes luminous instead of glaring.
+Surfaces climb in dark where they fall in light, so the two-plane idea — chrome
+sits back, anything being *read* comes forward — survives inversion.
+
+Type is IBM Plex Sans and IBM Plex Mono, bundled rather than fetched so the app
+works offline and a late font cannot reflow a dense list. Plex was drawn for
+technical products, and its mono was drawn as a true companion to the sans
+rather than an afterthought, so the two share a skeleton — which matters here
+more than usual, because every commit row sets a subject in sans directly
+beside a hash in mono. The fallback stack names Korean faces explicitly, since
+commit authors have Korean names and a Latin-only bundle would drop them to
+something at a different size mid-row.
+
+## Themes
+
+Light, dark, or match the system — three states shown at once in the status
+bar rather than a cycling button, because the difference between "dark" and
+"a system that happens to be dark" is invisible until the OS changes.
+
+The setting lives in the main process, in `settings.json` under the app's user
+data directory, and is read before any window exists. Restoring it in the
+renderer would show a frame of the wrong theme on every launch. It is applied
+through `nativeTheme.themeSource` as well as a class on the root element, so
+the window frame and any OS dialog follow it too.
+
 ## Design tokens
 
 Three layers, each referencing only the one below it:

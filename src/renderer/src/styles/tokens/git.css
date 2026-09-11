@@ -1,136 +1,176 @@
 /* ---------------------------------------------------------------------------
  * LAYER 3 — DOMAIN (Git)
  *
- * Tokens that only mean something in a Git client. Kept separate from the
- * generic semantic layer because these carry product meaning: a "deletion" is
- * red because it is a deletion, not because red is the danger color. Designers
- * retheme these independently of the UI chrome.
+ * The tokens that only mean something in a Git client. Separate from the
+ * generic semantic layer because these carry a verdict: a deletion is red
+ * because it is a deletion, not because red is the danger colour. This is the
+ * layer the whole palette is arranged around — everywhere else gives up its
+ * saturation so that these read.
  * ------------------------------------------------------------------------ */
 
 :root {
-  /* -- Diff: line backgrounds --------------------------------------------- */
-  --diff-add-bg:          var(--p-green-100);
-  --diff-add-bg-emphasis: oklch(0.856 0.104 148); /* intra-line word highlight */
-  --diff-add-gutter:      oklch(0.888 0.078 148);
-  --diff-add-content:     var(--p-green-700);
+  /* -- Diff ---------------------------------------------------------------
+   * Tinted rows rather than gutter stripes: the eye follows the block of
+   * changed text, and at 20px rows a stripe is too thin to group. The
+   * emphasis tints mark the changed words inside a changed line. */
+  --diff-add-bg:          var(--p-add-50);
+  --diff-add-bg-emphasis: var(--p-add-200);
+  --diff-add-gutter:      var(--p-add-100);
+  --diff-add-content:     var(--p-add-700);
 
-  --diff-del-bg:          var(--p-red-100);
-  --diff-del-bg-emphasis: oklch(0.856 0.088 25);
-  --diff-del-gutter:      oklch(0.892 0.062 25);
-  --diff-del-content:     var(--p-red-700);
+  --diff-del-bg:          var(--p-del-50);
+  --diff-del-bg-emphasis: var(--p-del-200);
+  --diff-del-gutter:      var(--p-del-100);
+  --diff-del-content:     var(--p-del-700);
 
   --diff-context-bg:      transparent;
   --diff-context-content: var(--content-primary);
 
-  --diff-hunk-bg:      var(--p-neutral-100);
+  --diff-hunk-bg:      var(--p-ink-50);
   --diff-hunk-content: var(--content-tertiary);
   --diff-hunk-border:  var(--border-subtle);
 
   --diff-linenum-bg:      transparent;
-  --diff-linenum-content: var(--content-disabled);
+  --diff-linenum-content: var(--p-ink-400);
   --diff-linenum-width:   3.25rem;
 
-  --diff-gutter-marker-width: 1.25rem; /* the +/- column */
+  --diff-gutter-marker-width: 1.25rem;
   --diff-line-height:  var(--p-leading-code);
   --diff-font:         var(--p-font-mono);
   --diff-font-size:    var(--p-text-sm);
-  /* Fixed, not derived from line-height: the diff is virtualized and the row
-     box must be knowable before anything is mounted. */
   --diff-row-height:   1.25rem;
 
-  /* -- Merge conflict: the three stages -----------------------------------
-   * Named after `git show :1: / :2: / :3:` — base / ours / theirs. */
-  --conflict-base-bg:      var(--p-neutral-100);
-  --conflict-base-border:  var(--p-neutral-400);
+  /* -- Merge conflict ------------------------------------------------------
+   * Named for the index stages they come from — `git show :1:` / `:2:` /
+   * `:3:`. Ours takes the accent because it is where you already are; theirs
+   * takes violet, the next lane along, because it is the other branch. */
+  --conflict-base-bg:      var(--p-ink-50);
+  --conflict-base-border:  var(--p-ink-300);
   --conflict-base-content: var(--content-secondary);
 
-  --conflict-ours-bg:      var(--p-accent-100);
+  --conflict-ours-bg:      var(--p-accent-50);
   --conflict-ours-border:  var(--p-accent-500);
   --conflict-ours-content: var(--p-accent-700);
 
-  --conflict-theirs-bg:      oklch(0.930 0.045 303);
-  --conflict-theirs-border:  var(--p-purple-500);
-  --conflict-theirs-content: var(--p-purple-700);
+  --conflict-theirs-bg:      oklch(0.948 0.030 305);
+  --conflict-theirs-border:  var(--p-lane-2);
+  --conflict-theirs-content: oklch(0.420 0.148 305);
 
   --conflict-result-bg:     var(--surface-default);
   --conflict-result-border: var(--border-default);
 
-  --conflict-unresolved-bg:     var(--p-amber-100);
-  --conflict-unresolved-border: var(--p-amber-500);
-  --conflict-resolved-content:  var(--p-green-700);
+  --conflict-unresolved-bg:     var(--p-warn-100);
+  --conflict-unresolved-border: var(--p-warn-500);
+  --conflict-resolved-content:  var(--p-add-700);
 
-  /* -- File status (index / worktree) -------------------------------------- */
-  --status-modified:   var(--p-amber-500);
-  --status-added:      var(--p-green-500);
-  --status-deleted:    var(--p-red-500);
-  --status-renamed:    var(--p-accent-500);
-  --status-copied:     var(--p-cyan-500);
-  --status-untracked:  var(--p-neutral-500);
-  --status-conflicted: var(--p-orange-500);
+  /* -- File status --------------------------------------------------------
+   * Only three of these are hues with a verdict; the rest borrow from the
+   * lane set so the change list does not turn into a second palette. */
+  --status-modified:   var(--p-lane-4);
+  --status-added:      var(--p-add-600);
+  --status-deleted:    var(--p-del-600);
+  --status-renamed:    var(--p-lane-6);
+  --status-copied:     var(--p-lane-3);
+  --status-untracked:  var(--p-ink-400);
+  --status-conflicted: var(--p-warn-500);
   --status-ignored:    var(--content-disabled);
-  --status-staged:     var(--p-green-500);
-  --status-unstaged:   var(--p-amber-500);
+  --status-staged:     var(--p-add-600);
+  --status-unstaged:   var(--p-lane-4);
 
-  /* -- Refs ---------------------------------------------------------------- */
-  --ref-head-bg:       var(--p-accent-500);
-  --ref-head-content:  var(--p-neutral-0);
-  --ref-local-bg:      var(--p-accent-100);
-  --ref-local-content: var(--p-accent-700);
-  --ref-remote-bg:     var(--p-neutral-100);
+  /* -- Refs ---------------------------------------------------------------
+   * The checked-out branch is the only ref that gets a filled badge. Every
+   * other ref is an outline, so a busy row stays scannable and HEAD is
+   * findable without reading. */
+  --ref-head-bg:        var(--p-accent-500);
+  --ref-head-content:   var(--p-ink-0);
+  --ref-local-bg:       transparent;
+  --ref-local-border:   var(--p-accent-200);
+  --ref-local-content:  var(--p-accent-700);
+  --ref-remote-bg:      transparent;
+  --ref-remote-border:  var(--p-ink-200);
   --ref-remote-content: var(--content-secondary);
-  --ref-tag-bg:        var(--p-amber-100);
-  --ref-tag-content:   var(--p-amber-700);
-  --ref-stash-bg:      var(--p-purple-500);
-  --ref-stash-content: var(--p-neutral-0);
+  --ref-tag-bg:         transparent;
+  --ref-tag-border:     oklch(0.856 0.072 68);
+  --ref-tag-content:    var(--p-warn-700);
+  --ref-stash-bg:       var(--p-lane-2);
+  --ref-stash-content:  var(--p-ink-0);
 
-  --sync-ahead:  var(--p-green-500);
-  --sync-behind: var(--p-amber-500);
-  --sync-diverged: var(--p-red-500);
+  --sync-ahead:    var(--p-add-600);
+  --sync-behind:   var(--p-lane-4);
+  --sync-diverged: var(--p-del-600);
 
-  /* -- Commit graph lanes --------------------------------------------------
-   * Cycled by lane index. Keep these mutually distinguishable at 2px width. */
-  --graph-lane-1: var(--p-accent-500);
-  --graph-lane-2: var(--p-green-500);
-  --graph-lane-3: var(--p-amber-500);
-  --graph-lane-4: var(--p-purple-500);
-  --graph-lane-5: var(--p-cyan-500);
-  --graph-lane-6: var(--p-pink-500);
-  --graph-lane-7: var(--p-teal-500);
-  --graph-lane-8: var(--p-orange-500);
+  /* -- Commit graph -------------------------------------------------------
+   * The one place the design spends its boldness. Eight hues chosen to stay
+   * apart at a 2px stroke and to avoid the green and red bands entirely,
+   * since those two are a claim about content in the diff alongside. */
+  --graph-lane-1: var(--p-lane-1);
+  --graph-lane-2: var(--p-lane-2);
+  --graph-lane-3: var(--p-lane-3);
+  --graph-lane-4: var(--p-lane-4);
+  --graph-lane-5: var(--p-lane-5);
+  --graph-lane-6: var(--p-lane-6);
+  --graph-lane-7: var(--p-lane-7);
+  --graph-lane-8: var(--p-lane-8);
 
   --graph-node-size:    0.5rem;
   --graph-lane-width:   0.875rem;
-  --graph-stroke-width: 0.125rem;
-  --graph-merge-node-ring: var(--surface-default);
+  --graph-stroke-width: 0.1125rem;
+  --graph-merge-node-ring: var(--surface-sunken);
 }
 
 .dark {
-  --diff-add-bg:          oklch(0.268 0.058 148);
-  --diff-add-bg-emphasis: oklch(0.372 0.096 148);
-  --diff-add-gutter:      oklch(0.322 0.072 148);
-  --diff-add-content:     var(--p-green-300);
+  --diff-add-bg:          oklch(0.262 0.048 152);
+  --diff-add-bg-emphasis: oklch(0.362 0.084 152);
+  --diff-add-gutter:      oklch(0.312 0.062 152);
+  --diff-add-content:     var(--p-add-dark);
 
-  --diff-del-bg:          oklch(0.272 0.062 25);
-  --diff-del-bg-emphasis: oklch(0.378 0.104 25);
-  --diff-del-gutter:      oklch(0.328 0.078 25);
-  --diff-del-content:     var(--p-red-300);
+  --diff-del-bg:          oklch(0.266 0.052 22);
+  --diff-del-bg-emphasis: oklch(0.372 0.096 22);
+  --diff-del-gutter:      oklch(0.320 0.068 22);
+  --diff-del-content:     var(--p-del-dark);
 
-  --diff-hunk-bg: var(--p-neutral-900);
+  --diff-hunk-bg:         var(--p-ink-900);
+  --diff-linenum-content: var(--p-ink-600);
 
-  --conflict-base-bg:      var(--p-neutral-900);
-  --conflict-base-border:  var(--p-neutral-700);
-  --conflict-ours-bg:      oklch(0.268 0.068 252);
-  --conflict-ours-content: var(--p-accent-300);
-  --conflict-theirs-bg:    oklch(0.272 0.072 303);
-  --conflict-theirs-content: var(--p-purple-300);
-  --conflict-unresolved-bg:  oklch(0.288 0.058 70);
-  --conflict-resolved-content: var(--p-green-300);
+  --conflict-base-bg:        var(--p-ink-900);
+  --conflict-base-border:    var(--p-ink-700);
+  --conflict-ours-bg:        oklch(0.252 0.058 266);
+  --conflict-ours-content:   var(--p-accent-200);
+  --conflict-theirs-bg:      oklch(0.256 0.062 305);
+  --conflict-theirs-border:  var(--p-lane-dark-2);
+  --conflict-theirs-content: oklch(0.808 0.088 305);
+  --conflict-unresolved-bg:  oklch(0.272 0.050 62);
+  --conflict-resolved-content: var(--p-add-dark);
 
-  --ref-local-bg:       oklch(0.268 0.068 252);
-  --ref-local-content:  var(--p-accent-300);
-  --ref-remote-bg:      var(--p-neutral-850);
-  --ref-tag-bg:         oklch(0.288 0.058 70);
-  --ref-tag-content:    var(--p-amber-300);
+  --status-modified:   var(--p-lane-dark-4);
+  --status-added:      var(--p-add-dark);
+  --status-deleted:    var(--p-del-dark);
+  --status-renamed:    var(--p-lane-dark-6);
+  --status-copied:     var(--p-lane-dark-3);
+  --status-conflicted: var(--p-warn-dark);
+  --status-staged:     var(--p-add-dark);
+  --status-unstaged:   var(--p-lane-dark-4);
 
-  --graph-merge-node-ring: var(--surface-default);
+  --ref-local-border:   var(--p-accent-900);
+  --ref-local-content:  var(--p-accent-200);
+  --ref-remote-border:  var(--p-ink-800);
+  --ref-tag-border:     oklch(0.372 0.062 68);
+  --ref-tag-content:    var(--p-warn-dark);
+  --ref-stash-bg:       var(--p-lane-dark-2);
+  --ref-stash-content:  var(--p-ink-1000);
+
+  --sync-ahead:    var(--p-add-dark);
+  --sync-behind:   var(--p-lane-dark-4);
+  --sync-diverged: var(--p-del-dark);
+
+  --graph-lane-1: var(--p-lane-dark-1);
+  --graph-lane-2: var(--p-lane-dark-2);
+  --graph-lane-3: var(--p-lane-dark-3);
+  --graph-lane-4: var(--p-lane-dark-4);
+  --graph-lane-5: var(--p-lane-dark-5);
+  --graph-lane-6: var(--p-lane-dark-6);
+  --graph-lane-7: var(--p-lane-dark-7);
+  --graph-lane-8: var(--p-lane-dark-8);
+
+  --graph-merge-node-ring: var(--surface-sunken);
 }

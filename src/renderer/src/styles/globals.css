@@ -1,6 +1,8 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+@import './fonts.css';
+
 @import './tokens/primitives.css';
 @import './tokens/semantic.css';
 @import './tokens/git.css';
@@ -105,10 +107,13 @@
   --color-ref-head-bg: var(--ref-head-bg);
   --color-ref-head-content: var(--ref-head-content);
   --color-ref-local-bg: var(--ref-local-bg);
+  --color-ref-local-border: var(--ref-local-border);
   --color-ref-local-content: var(--ref-local-content);
   --color-ref-remote-bg: var(--ref-remote-bg);
+  --color-ref-remote-border: var(--ref-remote-border);
   --color-ref-remote-content: var(--ref-remote-content);
   --color-ref-tag-bg: var(--ref-tag-bg);
+  --color-ref-tag-border: var(--ref-tag-border);
   --color-ref-tag-content: var(--ref-tag-content);
   --color-sync-ahead: var(--sync-ahead);
   --color-sync-behind: var(--sync-behind);
@@ -123,6 +128,8 @@
   --color-graph-6: var(--graph-lane-6);
   --color-graph-7: var(--graph-lane-7);
   --color-graph-8: var(--graph-lane-8);
+  --color-diff-add-emphasis-bg: var(--diff-add-bg-emphasis);
+  --color-diff-del-emphasis-bg: var(--diff-del-bg-emphasis);
 
   /* shadcn/ui contract */
   --color-background: var(--background);

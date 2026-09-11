@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, IPC_EVENT } from '@shared/ipc.js'
 import type {
   RepoChange,
+  ThemeSetting,
+  ThemeState,
   UpdateState,
   CommitDiffRequest,
   CommitRequest,
@@ -96,6 +98,15 @@ const api: RendererApi = {
   pruneWorktrees: (cwd) => ipcRenderer.invoke(IPC.worktreePrune, cwd),
   lockWorktree: (cwd, path, reason) => ipcRenderer.invoke(IPC.worktreeLock, cwd, path, reason),
   unlockWorktree: (cwd, path) => ipcRenderer.invoke(IPC.worktreeUnlock, cwd, path),
+  theme: () => ipcRenderer.invoke(IPC.themeGet),
+  setTheme: (setting: ThemeSetting) => ipcRenderer.invoke(IPC.themeSet, setting),
+  onThemeChanged: (listener) => {
+    const handler = (_event: unknown, state: ThemeState): void => listener(state)
+    ipcRenderer.on(IPC_EVENT.themeChanged, handler)
+    return () => {
+      ipcRenderer.off(IPC_EVENT.themeChanged, handler)
+    }
+  },
   updateState: () => ipcRenderer.invoke(IPC.updateState),
   checkForUpdates: () => ipcRenderer.invoke(IPC.updateCheck),
   installUpdate: () => ipcRenderer.invoke(IPC.updateInstall),

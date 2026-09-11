@@ -1,0 +1,45 @@
+/* ---------------------------------------------------------------------------
+ * Bundled, not fetched: the app works offline, and a font that arrives late
+ * reflows a dense list.
+ *
+ * IBM Plex was drawn for technical products, and its mono was drawn as a true
+ * companion to the sans rather than an afterthought — the two share a
+ * skeleton. That matters here more than usual, because every commit row sets a
+ * subject in sans directly beside a hash in mono.
+ * ------------------------------------------------------------------------ */
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('../assets/fonts/ibm-plex-sans-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url('../assets/fonts/ibm-plex-sans-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url('../assets/fonts/ibm-plex-sans-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('../assets/fonts/ibm-plex-mono-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url('../assets/fonts/ibm-plex-mono-500.woff2') format('woff2');
+}

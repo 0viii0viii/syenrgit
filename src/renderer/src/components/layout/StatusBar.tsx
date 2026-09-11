@@ -1,5 +1,6 @@
 import { AlertTriangle, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ThemeToggle } from './ThemeToggle'
 import { UpdateBadge } from './UpdateBadge'
 import { useActions } from '@/stores/actions'
 import { useRepo } from '@/stores/repo'
@@ -135,6 +136,7 @@ export function StatusBar(): React.JSX.Element {
 
       <div className="flex-1" />
       <UpdateBadge />
+      <ThemeToggle />
       {status && <span className="shrink-0">{status.files.length} changes</span>}
     </footer>
   )

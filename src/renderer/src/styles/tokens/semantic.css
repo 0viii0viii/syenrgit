@@ -1,63 +1,68 @@
 /* ---------------------------------------------------------------------------
  * LAYER 2 — SEMANTIC
  *
- * Role-based tokens. Everything here is a var() reference into primitives.css;
- * no literal values. This layer also satisfies the shadcn/ui variable contract
- * (--background, --foreground, --primary, --border, --ring, ...) so shadcn
- * components inherit the design system for free.
+ * Roles. Every value here is a var() into primitives.css; no literals.
+ * This layer also satisfies the shadcn/ui variable contract, so those
+ * components inherit the design system without being edited.
+ *
+ * Light is the default and the primary: the app is read for hours, and dark
+ * is the variant that has to keep up rather than the other way round.
  * ------------------------------------------------------------------------ */
 
 :root {
-  /* -- Surfaces (ascending elevation) ------------------------------------- */
-  --surface-app:      var(--p-neutral-100); /* window backdrop */
-  --surface-sunken:   var(--p-neutral-50);  /* wells, list backgrounds */
-  --surface-default:  var(--p-neutral-0);   /* panels, cards */
-  --surface-raised:   var(--p-neutral-0);   /* popovers, menus */
-  --surface-overlay:  var(--p-neutral-0);   /* dialogs */
-  --surface-inset:    var(--p-neutral-100); /* inputs, code wells */
+  /* -- Surfaces -----------------------------------------------------------
+   * Two planes, not five. Chrome sits a step back on tinted paper; anything
+   * being *read* — a diff, a list of commits — comes forward onto plain
+   * paper. The step is what tells you where the content is. */
+  --surface-app:      var(--p-ink-50);
+  --surface-sunken:   var(--p-ink-25);
+  --surface-default:  var(--p-ink-0);
+  --surface-raised:   var(--p-ink-0);
+  --surface-overlay:  var(--p-ink-0);
+  --surface-inset:    var(--p-ink-50);
 
-  --surface-hover:    oklch(0 0 0 / 0.04);
-  --surface-active:   oklch(0 0 0 / 0.07);
-  --surface-selected: var(--p-accent-100);
+  --surface-hover:    oklch(0.196 0.025 266 / 0.045);
+  --surface-active:   oklch(0.196 0.025 266 / 0.085);
+  --surface-selected: var(--p-accent-50);
 
   /* -- Content ------------------------------------------------------------- */
-  --content-primary:   var(--p-neutral-900);
-  --content-secondary: var(--p-neutral-600);
-  --content-tertiary:  var(--p-neutral-500);
-  --content-disabled:  var(--p-neutral-400);
-  --content-inverted:  var(--p-neutral-0);
+  --content-primary:   var(--p-ink-900);
+  --content-secondary: var(--p-ink-600);
+  --content-tertiary:  var(--p-ink-500);
+  --content-disabled:  var(--p-ink-400);
+  --content-inverted:  var(--p-ink-0);
   --content-link:      var(--p-accent-600);
 
   /* -- Borders ------------------------------------------------------------- */
-  --border-subtle:  var(--p-neutral-200);
-  --border-default: var(--p-neutral-300);
-  --border-strong:  var(--p-neutral-400);
+  --border-subtle:  var(--p-ink-100);
+  --border-default: var(--p-ink-150);
+  --border-strong:  var(--p-ink-300);
   --border-focus:   var(--p-accent-500);
 
-  /* -- Interactive: accent ------------------------------------------------- */
+  /* -- Interactive --------------------------------------------------------- */
   --accent-bg:         var(--p-accent-500);
   --accent-bg-hover:   var(--p-accent-600);
   --accent-bg-active:  var(--p-accent-700);
-  --accent-bg-subtle:  var(--p-accent-100);
-  --accent-content:    var(--p-neutral-0);
+  --accent-bg-subtle:  var(--p-accent-50);
+  --accent-content:    var(--p-ink-0);
   --accent-content-on-subtle: var(--p-accent-700);
 
   /* -- Feedback ------------------------------------------------------------ */
-  --success-bg: var(--p-green-500);  --success-content: var(--p-green-700);  --success-subtle: var(--p-green-100);
-  --danger-bg:  var(--p-red-500);    --danger-content:  var(--p-red-700);    --danger-subtle:  var(--p-red-100);
-  --warning-bg: var(--p-amber-500);  --warning-content: var(--p-amber-700);  --warning-subtle: var(--p-amber-100);
-  --info-bg:    var(--p-accent-500); --info-content:    var(--p-accent-700); --info-subtle:    var(--p-accent-100);
+  --success-bg: var(--p-add-500);  --success-content: var(--p-add-700);  --success-subtle: var(--p-add-50);
+  --danger-bg:  var(--p-del-500);  --danger-content:  var(--p-del-700);  --danger-subtle:  var(--p-del-50);
+  --warning-bg: var(--p-warn-500); --warning-content: var(--p-warn-700); --warning-subtle: var(--p-warn-100);
+  --info-bg:    var(--p-accent-500); --info-content:  var(--p-accent-700); --info-subtle:  var(--p-accent-50);
 
   /* -- Layout metrics ------------------------------------------------------ */
-  --layout-titlebar-height: 2.375rem; /* frameless drag region */
+  --layout-titlebar-height: 2.375rem;
   --layout-sidebar-width:   16rem;
   --layout-sidebar-min:     11rem;
   --layout-sidebar-max:     26rem;
   --layout-statusbar-height: 1.625rem;
-  --layout-row-height:      1.75rem;  /* file/commit list row */
+  --layout-row-height:      1.75rem;
   --layout-row-height-lg:   2.25rem;
-  --layout-section-header:  1.5rem;   /* sticky group header in a list */
-  --layout-author-width:    9rem;     /* author column in the commit list */
+  --layout-section-header:  1.5rem;
+  --layout-author-width:    9rem;
 
   /* -- shadcn/ui contract -------------------------------------------------- */
   --radius: var(--p-radius-md);
@@ -70,11 +75,11 @@
   --popover-foreground:    var(--content-primary);
   --primary:               var(--accent-bg);
   --primary-foreground:    var(--accent-content);
-  --secondary:             var(--p-neutral-100);
+  --secondary:             var(--p-ink-100);
   --secondary-foreground:  var(--content-primary);
-  --muted:                 var(--p-neutral-100);
+  --muted:                 var(--p-ink-50);
   --muted-foreground:      var(--content-secondary);
-  --accent:                var(--p-neutral-100);
+  --accent:                var(--p-ink-100);
   --accent-foreground:     var(--content-primary);
   --destructive:           var(--danger-bg);
   --destructive-foreground: var(--content-inverted);
@@ -91,52 +96,63 @@
   --sidebar-border:             var(--border-subtle);
   --sidebar-ring:               var(--border-focus);
 
-  /* Chart slots — remapped to the branch-graph lanes in git.css */
-  --chart-1: var(--p-accent-500);
-  --chart-2: var(--p-green-500);
-  --chart-3: var(--p-amber-500);
-  --chart-4: var(--p-purple-500);
-  --chart-5: var(--p-cyan-500);
+  --chart-1: var(--p-lane-1);
+  --chart-2: var(--p-lane-2);
+  --chart-3: var(--p-lane-3);
+  --chart-4: var(--p-lane-4);
+  --chart-5: var(--p-lane-5);
 }
 
+/* ---------------------------------------------------------------------------
+ * Dark: the same material after dusk.
+ *
+ * Surfaces climb rather than fall — the reading plane is *lighter* than the
+ * chrome, which is the only way the two-plane idea survives inversion.
+ * ------------------------------------------------------------------------ */
 .dark {
-  --surface-app:      var(--p-neutral-1000);
-  --surface-sunken:   var(--p-neutral-1000);
-  --surface-default:  var(--p-neutral-950);
-  --surface-raised:   var(--p-neutral-900);
-  --surface-overlay:  var(--p-neutral-900);
-  --surface-inset:    var(--p-neutral-1000);
+  --surface-app:      var(--p-ink-1000);
+  --surface-sunken:   var(--p-ink-1000);
+  --surface-default:  var(--p-ink-950);
+  --surface-raised:   var(--p-ink-900);
+  --surface-overlay:  var(--p-ink-900);
+  --surface-inset:    var(--p-ink-1000);
 
-  --surface-hover:    oklch(1 0 0 / 0.05);
-  --surface-active:   oklch(1 0 0 / 0.09);
+  --surface-hover:    oklch(0.994 0.0015 260 / 0.055);
+  --surface-active:   oklch(0.994 0.0015 260 / 0.095);
   --surface-selected: var(--p-accent-950);
 
-  --content-primary:   var(--p-neutral-100);
-  --content-secondary: var(--p-neutral-400);
-  --content-tertiary:  var(--p-neutral-500);
-  --content-disabled:  var(--p-neutral-600);
-  --content-inverted:  var(--p-neutral-950);
+  --content-primary:   var(--p-ink-100);
+  --content-secondary: var(--p-ink-400);
+  --content-tertiary:  var(--p-ink-500);
+  --content-disabled:  var(--p-ink-600);
+  --content-inverted:  var(--p-ink-1000);
   --content-link:      var(--p-accent-400);
 
-  --border-subtle:  var(--p-neutral-850);
-  --border-default: var(--p-neutral-800);
-  --border-strong:  var(--p-neutral-700);
+  --border-subtle:  var(--p-ink-850);
+  --border-default: var(--p-ink-800);
+  --border-strong:  var(--p-ink-700);
   --border-focus:   var(--p-accent-400);
 
   --accent-bg:        var(--p-accent-500);
   --accent-bg-hover:  var(--p-accent-400);
-  --accent-bg-active: var(--p-accent-300);
+  --accent-bg-active: var(--p-accent-400);
   --accent-bg-subtle: var(--p-accent-950);
-  --accent-content:   var(--p-neutral-0);
-  --accent-content-on-subtle: var(--p-accent-300);
+  --accent-content:   var(--p-ink-0);
+  --accent-content-on-subtle: var(--p-accent-200);
 
-  --success-content: var(--p-green-300);  --success-subtle: var(--p-green-950);
-  --danger-content:  var(--p-red-300);    --danger-subtle:  var(--p-red-950);
-  --warning-content: var(--p-amber-300);  --warning-subtle: var(--p-amber-950);
-  --info-content:    var(--p-accent-300); --info-subtle:    var(--p-accent-950);
+  --success-content: var(--p-add-dark);  --success-subtle: var(--p-add-950);
+  --danger-content:  var(--p-del-dark);  --danger-subtle:  var(--p-del-950);
+  --warning-content: var(--p-warn-dark); --warning-subtle: var(--p-warn-950);
+  --info-content:    var(--p-accent-400); --info-subtle:   var(--p-accent-950);
 
-  --secondary:         var(--p-neutral-850);
-  --muted:             var(--p-neutral-850);
-  --accent:            var(--p-neutral-850);
-  --destructive-foreground: var(--p-neutral-0);
+  --secondary:         var(--p-ink-850);
+  --muted:             var(--p-ink-900);
+  --accent:            var(--p-ink-850);
+  --destructive-foreground: var(--p-ink-0);
+
+  --chart-1: var(--p-lane-dark-1);
+  --chart-2: var(--p-lane-dark-2);
+  --chart-3: var(--p-lane-dark-3);
+  --chart-4: var(--p-lane-dark-4);
+  --chart-5: var(--p-lane-dark-5);
 }

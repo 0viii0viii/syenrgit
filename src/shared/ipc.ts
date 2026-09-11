@@ -65,6 +65,8 @@ export const IPC = {
   updateState: 'update:state',
   updateCheck: 'update:check',
   updateInstall: 'update:install',
+  themeGet: 'theme:get',
+  themeSet: 'theme:set',
   patchRead: 'patch:read',
   patchStage: 'patch:stage',
   patchUnstage: 'patch:unstage',
@@ -81,8 +83,21 @@ export const IPC = {
 /** Pushed from main to the renderer; not request/response. */
 export const IPC_EVENT = {
   repoChanged: 'repo:changed',
-  updateChanged: 'update:changed'
+  updateChanged: 'update:changed',
+  themeChanged: 'theme:changed'
 } as const
+
+/**
+ * 'system' follows the OS and changes with it; the other two pin the app
+ * regardless of what the desktop is doing.
+ */
+export type ThemeSetting = 'light' | 'dark' | 'system'
+
+export interface ThemeState {
+  setting: ThemeSetting
+  /** What the setting resolves to right now. */
+  resolved: 'light' | 'dark'
+}
 
 /**
  * Where the auto-updater has got to.
@@ -466,6 +481,10 @@ export interface RendererApi {
   runTodo(req: RunTodoRequest): Promise<RebaseOutcome>
   /** Subscribe to repo-changed pushes. Returns an unsubscribe function. */
   onRepoChanged(listener: (change: RepoChange) => void): () => void
+  theme(): Promise<ThemeState>
+  setTheme(setting: ThemeSetting): Promise<ThemeState>
+  /** Subscribe to theme changes, including the OS flipping under 'system'. */
+  onThemeChanged(listener: (state: ThemeState) => void): () => void
   updateState(): Promise<UpdateState>
   checkForUpdates(): Promise<void>
   installUpdate(): Promise<void>

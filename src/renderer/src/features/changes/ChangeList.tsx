@@ -229,9 +229,9 @@ export function ChangeList(): React.JSX.Element {
               }}
             >
               {row.kind === 'header' ? (
-                <div className="flex h-full items-center gap-1.5 bg-surface-sunken px-2 text-2xs font-semibold uppercase tracking-wide text-content-tertiary">
+                <div className="flex h-full items-center gap-1.5 bg-surface-sunken px-2 text-2xs font-medium text-content-secondary">
                   {row.title}
-                  <span className="font-normal normal-case">{row.count}</span>
+                  <span className="tabular-nums text-content-tertiary">{row.count}</span>
                 </div>
               ) : (
                 <FileRow
